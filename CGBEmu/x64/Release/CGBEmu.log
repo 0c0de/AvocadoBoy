@@ -1,0 +1,23 @@
+﻿  CPU.cpp
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\GPU.h(2,10): error C1083: No se puede abrir el archivo incluir: 'glew.h': No such file or directory
+  (compilando archivo de origen "CPU.cpp")
+  
+  GPU.cpp
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\GPU.h(2,10): error C1083: No se puede abrir el archivo incluir: 'glew.h': No such file or directory
+  (compilando archivo de origen "GPU.cpp")
+  
+  GUI.cpp
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\GPU.h(2,10): error C1083: No se puede abrir el archivo incluir: 'glew.h': No such file or directory
+  (compilando archivo de origen "GUI.cpp")
+  
+  imgui_impl_sdl.cpp
+  main.cpp
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\GPU.h(2,10): error C1083: No se puede abrir el archivo incluir: 'glew.h': No such file or directory
+  (compilando archivo de origen "main.cpp")
+  
+  mmu.cpp
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\mmu.cpp(35,24): warning C4244: 'return': conversión de 'uint16_t' a 'uint8_t'; posible pérdida de datos
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\mmu.cpp(39,34): warning C4244: 'return': conversión de 'uint16_t' a 'uint8_t'; posible pérdida de datos
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\mmu.cpp(43,33): warning C4244: 'return': conversión de 'uint16_t' a 'uint8_t'; posible pérdida de datos
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\mmu.cpp(47,34): warning C4244: 'return': conversión de 'uint16_t' a 'uint8_t'; posible pérdida de datos
+C:\Users\josel\Desarrollo\CGB--main\CGBEmu\mmu.cpp(50,34): warning C4244: 'return': conversión de 'uint16_t' a 'uint8_t'; posible pérdida de datos

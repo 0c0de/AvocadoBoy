@@ -1,0 +1,8 @@
+.vs/
+.git/ 
+.vs
+.git
+/Debug
+/CGBEmu/Debug
+/CGBEmu/cpu_log.txt
+CGBEmu/cpu_log.txt
