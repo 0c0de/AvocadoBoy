@@ -17,5 +17,5 @@ AvocadoBoy is an emulator of the original Gameboy(DMG)
 - ❌ Improve UI like modern emulators
 
 # My biggest achivement
-Prints hello world
+Playing tetris
 ![hello_world](https://i.ibb.co/nqccgbRQ/Captura-de-pantalla-2026-01-28-112139.png)
