@@ -1,5 +1,6 @@
 # AvocadoBoy
 AvocadoBoy is an emulator of the original Gameboy(DMG)
+![Avocado](https://i.ibb.co/Zz7sNDm6/Gemini-Generated-Image-tyypo2tyypo2tyyp.jpg)
 
 # Features
 - ✅ Implemented graphics
