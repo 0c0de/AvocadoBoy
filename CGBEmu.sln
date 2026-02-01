@@ -1,9 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36908.2 d17.14
+VisualStudioVersion = 17.14.36908.2
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CGBEmu", "CGBEmu\CGBEmu.vcxproj", "{80BBCE84-7CFC-421B-BAE2-532BA147BB23}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Elementos de la solución", "Elementos de la solución", "{D107F4C8-89CC-BEA8-D3D7-CA6B7733353D}"
+	ProjectSection(SolutionItems) = preProject
+		Icon1.ico = Icon1.ico
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,8 +18,8 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{80BBCE84-7CFC-421B-BAE2-532BA147BB23}.Debug|x64.ActiveCfg = Debug|Win32
-		{80BBCE84-7CFC-421B-BAE2-532BA147BB23}.Debug|x64.Build.0 = Debug|Win32
+		{80BBCE84-7CFC-421B-BAE2-532BA147BB23}.Debug|x64.ActiveCfg = Debug|x64
+		{80BBCE84-7CFC-421B-BAE2-532BA147BB23}.Debug|x64.Build.0 = Debug|x64
 		{80BBCE84-7CFC-421B-BAE2-532BA147BB23}.Debug|x86.ActiveCfg = Debug|Win32
 		{80BBCE84-7CFC-421B-BAE2-532BA147BB23}.Debug|x86.Build.0 = Debug|Win32
 		{80BBCE84-7CFC-421B-BAE2-532BA147BB23}.Release|x64.ActiveCfg = Release|x64

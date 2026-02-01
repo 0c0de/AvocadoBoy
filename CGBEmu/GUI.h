@@ -1,7 +1,7 @@
 #pragma once
 #include "imgui.h"
-#include "imgui_impl_sdl.h"
-#include "imgui_impl_opengl2.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_sdlrenderer2.h"
 #include "mmu.h"
 #include <string>  
 #include <iostream> 
@@ -15,4 +15,4 @@ void drawMMU(MMU *mmu);
 
 void drawFlags(GameboyFlags *flags, GameboyRegisters *reg, GPU *gpu, CPU *gameboy);
 
-void drawGame(GLuint gameTexture);
+void drawGame();

@@ -202,7 +202,6 @@ void MMU::write8(uint16_t addr, uint8_t value) {
             if (addr == 0xFF46) {
                 DMATransfer(value);
                 cyclesToAdd += 160;
-                std::cout << "Writing DMA" << std::endl;
                 return;
             }
 

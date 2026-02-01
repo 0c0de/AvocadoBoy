@@ -1,8 +1,6 @@
 #pragma once
-#include "glew.h"
 #include "Interrupts.h"
 #include <SDL.h>
-#include "SDL_opengles2.h"
 
 class GPU
 {

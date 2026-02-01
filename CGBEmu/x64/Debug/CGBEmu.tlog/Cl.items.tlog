@@ -1,0 +1,16 @@
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\CPU.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\CPU.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\GPU.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\GPU.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\GUI.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\GUI.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\imgui.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui_demo.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\imgui_demo.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui_draw.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\imgui_draw.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui_impl_sdl2.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\imgui_impl_sdl2.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui_impl_sdlrenderer2.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\imgui_impl_sdlrenderer2.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui_impl_win32.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\imgui_impl_win32.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui_tables.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\imgui_tables.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui_widgets.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\imgui_widgets.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Interrupts.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\Interrupts.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Joypad.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\Joypad.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\main.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\main.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\mmu.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\mmu.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\Timers.obj

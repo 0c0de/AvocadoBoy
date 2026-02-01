@@ -6,90 +6,67 @@
 #include <bitset>
 #include "Timers.h"
 #include <iomanip>   // Para std::setw, std::setfill, std::hex
-#include "spdlog/spdlog.h"
-#include "spdlog/sinks/basic_file_sink.h"
-
+#include "portable-file-dialogs.h"
 
 using namespace std;
-
-// Función que formatea el estado de la CPU en el patrón deseado
-std::string formatCpuStateLog(CPU* gameboy) {
-	std::stringstream ss;
-
-	// Configuramos el stream para que use hexadecimal, mayúsculas y rellene con ceros
-	ss << std::hex << std::uppercase << std::setfill('0');
-
-	// Registros de 8 bits (2 dígitos hex)
-	ss << "A:" << std::setw(2) << static_cast<unsigned>(gameboy->getGameboyRegisters()->A) << " ";
-	ss << "F:" << std::setw(2) << static_cast<unsigned>(gameboy->getGameboyRegisters()->F) << " ";
-	ss << "B:" << std::setw(2) << static_cast<unsigned>(gameboy->getGameboyRegisters()->B) << " ";
-	ss << "C:" << std::setw(2) << static_cast<unsigned>(gameboy->getGameboyRegisters()->C) << " ";
-	ss << "D:" << std::setw(2) << static_cast<unsigned>(gameboy->getGameboyRegisters()->D) << " ";
-	ss << "E:" << std::setw(2) << static_cast<unsigned>(gameboy->getGameboyRegisters()->E) << " ";
-	ss << "H:" << std::setw(2) << static_cast<unsigned>(gameboy->getGameboyRegisters()->H) << " ";
-	ss << "L:" << std::setw(2) << static_cast<unsigned>(gameboy->getGameboyRegisters()->L) << " ";
-
-	// Registros de 16 bits (4 dígitos hex)
-	ss << "SP:" << std::setw(4) << gameboy->getMMUValues()->sp<< " ";
-	ss << "PC:" << std::setw(4) << gameboy->pc << " ";
-
-	// Memoria en PC (PCMEM)
-	ss << "PCMEM:";
-	for (size_t i = 0; i < 4; ++i) {
-		ss << std::setw(2) << static_cast<unsigned>(gameboy->getMMUValues()->read8(gameboy->pc + i));
-		if (i < 3) {
-			ss << ",";
-		}
-	}
-
-	return ss.str();
-}
 
 Timer timer;
 Timer* globalTimer = &timer;
 
+vector<string> OpenFile() {
+	auto fileResult = pfd::open_file("Select a GameBoy ROM", "", { "Gameboy", "*.gb" }, pfd::opt::none);
+
+	std::vector<std::string> result = fileResult.result();
+
+	if (result.empty()) {
+		std::cout << "No file selected" << std::endl;
+		return {};
+	}
+
+	return result;
+}
+
 void runApp() {
 	//SDL Magic Thing
 	SDL_Window* mainWindow = NULL;
-	SDL_Window *debuggerWindow = NULL;
 	SDL_Renderer *render = NULL;
-	SDL_Renderer *debuggerRender = NULL;
+	SDL_Window* debuggerWindow = NULL;
+	SDL_Renderer* debuggerRenderer = NULL;
 
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
-	glewInit();
+	mainWindow = SDL_CreateWindow("AvocadoBoy", 500, 100, 160 * 3, 144 * 3, (SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI));
+	render = SDL_CreateRenderer(mainWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
-	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-	int cyclesMainLoop = 0;
-
-
-	mainWindow = SDL_CreateWindow("CGB++", 500, 100, 160 * 3, 144 * 3, (SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI));
-	debuggerWindow = SDL_CreateWindow("Debugger CGB++", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, (SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI));
-	render = SDL_CreateRenderer(mainWindow, -1, SDL_RENDERER_ACCELERATED);
-	debuggerRender = SDL_CreateRenderer(debuggerWindow, 0, SDL_RENDERER_ACCELERATED);
 
 	int MAXCYCLES = 70224;
 	float FPS = 59.73f;
 	float DELAY_TIME = 1000.0f / FPS;
 
-	SDL_GLContext gl_context = SDL_GL_CreateContext(debuggerWindow);
-	SDL_GL_MakeCurrent(debuggerWindow, gl_context);
-	SDL_GL_SetSwapInterval(1); // Enable vsync
-
 	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
+	ImGuiContext* context1 = ImGui::CreateContext();
+	ImGuiContext* context2 = ImGui::CreateContext();
+	ImGui::SetCurrentContext(context1);
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
 	// Setup Dear ImGui style
 	ImGui::StyleColorsDark();
 
+	ImGuiStyle& style = ImGui::GetStyle();
+	float main_scale = ImGui_ImplSDL2_GetContentScaleForDisplay(0);
+	style.ScaleAllSizes(main_scale);        // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
+	style.FontScaleDpi = main_scale;        // Set initial font scale. (in docking branch: using io.ConfigDpiScaleFonts=true automatically overrides this for every window depending on the current monitor)
+	io.ConfigDpiScaleFonts = true;          // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
+	io.ConfigDpiScaleViewports = true;      // [Experimental] Scale Dear ImGui and Platform Windows when Monitor DPI changes.
+
 	// Setup Platform/Renderer bindings
-	ImGui_ImplSDL2_InitForOpenGL(debuggerWindow, gl_context);
-	ImGui_ImplOpenGL2_Init();
+	ImGui_ImplSDL2_InitForSDLRenderer(mainWindow, render);
+	ImGui_ImplSDLRenderer2_Init(render);
+
+	bool isRomLoaded = false;
+	bool showDebugger = false;
+	ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	//Instantiate class GPU of the gameboy emulator
 	GPU gpu;
@@ -106,7 +83,7 @@ void runApp() {
 	//gameboy.loadGame("games/hello_world.gb");
 	//For PC
 	//gameboy.loadGame("E:/Dr. Mario (World).gb");
-	gameboy.loadGame("E:/Tetris.gb");
+	//gameboy.loadGame("E:/Tetris.gb");
 	//gameboy.loadGame("E:/02-interrupts.gb");
 	//gameboy.loadGame("E:/03-op sp,hl.gb");
 	//For laptop
@@ -221,45 +198,115 @@ void runApp() {
 				}
 			}
 
+			ImGui_ImplSDLRenderer2_NewFrame();
+			ImGui_ImplSDL2_NewFrame();
+			ImGui::NewFrame();
 
 			//gameboy.runCPU(&gpu, render);
-			int cyclesInThisFrame = 0;
-			while (cyclesInThisFrame < MAXCYCLES) {
+			if (isRomLoaded) {
+				int cyclesInThisFrame = 0;
+				while (cyclesInThisFrame < MAXCYCLES) {
 					//logger->info(formatCpuStateLog(&gameboy));
 					int cycles = gameboy.step();
 					//Logs << "A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD";
 					timer.updateTimer(gameboy.getMMUValues(), gameboy.getInterrupt(), cycles, gameboy.isStoped);
 					gpu.step(cycles, gameboy.getMMUValues(), render, gameboy.getInterrupt());
 					cyclesInThisFrame += cycles;
+				}
 			}
-
-			/*std::cout << "Frame completado:" << std::endl;
-			std::cout << "  Ciclos totales: " << cyclesInThisFrame << std::endl;
-			std::cout << "  FF44 final: 0x" << std::hex
-				<< (int)gameboy.getMMUValues()->read8(0xFF44) << std::endl;*/
-
-			SDL_RenderClear(render);
 			MMU* mmuValues = gameboy.getMMUValues();
 
-			ImGui_ImplOpenGL2_NewFrame();
-			ImGui_ImplSDL2_NewFrame(debuggerWindow);
-			ImGui::NewFrame();
+			if (ImGui::BeginMainMenuBar()) {
+				if (ImGui::BeginMenu("File")) {
+					if (ImGui::MenuItem("Open ROM")) {
+						std::cout << "Opening rom" << std::endl;
+						vector<string> romPath = OpenFile();
 
-			GameboyFlags* flagState = gameboy.getFlagState();
-			GameboyRegisters* reg = gameboy.getGameboyRegisters();
+						if (!romPath.empty()) {
+							std::cout << "Path selected: " << romPath[0] << std::endl;
+							gameboy.init();
+							gpu.init(render);
+							gameboy.loadGame(romPath[0].c_str());
+							isRomLoaded = true;
+						}
+					}
 
-			drawMMU(mmuValues);
-			drawFlags(flagState, reg, &gpu, &gameboy);
+					if (ImGui::MenuItem("Exit")) {
+						std::cout << "Closing" << std::endl;
+						isEmuRunning = false;
+					}
+
+					ImGui::EndMenu();
+				}
+				if (ImGui::BeginMenu("Tools")) {
+					if (ImGui::MenuItem("Debugger")) {
+						std::cout << "Show debugger" << std::endl;
+						debuggerWindow = SDL_CreateWindow("Debugger AvocadoBoy", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 500, 500, (SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI));
+						debuggerRenderer = SDL_CreateRenderer(debuggerWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+						IMGUI_CHECKVERSION();
+						ImGui::SetCurrentContext(context2);
+						ImGuiIO& io = ImGui::GetIO(); (void)io;
+						io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+						// Setup Dear ImGui style
+						ImGui::StyleColorsDark();
+
+						ImGuiStyle& style = ImGui::GetStyle();
+						float main_scale = ImGui_ImplSDL2_GetContentScaleForDisplay(0);
+						style.ScaleAllSizes(main_scale);        // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
+						style.FontScaleDpi = main_scale;        // Set initial font scale. (in docking branch: using io.ConfigDpiScaleFonts=true automatically overrides this for every window depending on the current monitor)
+						io.ConfigDpiScaleFonts = true;          // [Experimental] Automatically overwrite style.FontScaleDpi in Begin() when Monitor DPI changes. This will scale fonts but _NOT_ scale sizes/padding for now.
+						io.ConfigDpiScaleViewports = true;
+
+						ImGui_ImplSDL2_InitForSDLRenderer(debuggerWindow, debuggerRenderer);
+						ImGui_ImplSDLRenderer2_Init(debuggerRenderer);
+						ImGui_ImplSDLRenderer2_NewFrame();
+						ImGui_ImplSDL2_NewFrame();
+						ImGui::NewFrame();
+						SDL_RenderClear(debuggerRenderer);
+						showDebugger = true;
+					}
+					ImGui::SetCurrentContext(context1);
+					ImGui::EndMenu();
+				}
+
+				if (ImGui::BeginMenu("About")) {
+					if (ImGui::MenuItem("Info")) {
+						SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Creado por 0c0de", "This emulator has been created for educational purposes and we don't provide any ROM", mainWindow);
+					}
+
+					ImGui::EndMenu();
+				}
+
+				ImGui::EndMainMenuBar();
+			}
+
+			if (showDebugger) {
+
+				ImGui::SetCurrentContext(context2);
+				drawMMU(mmuValues);
+				drawFlags(gameboy.getFlagState(), gameboy.getGameboyRegisters(), &gpu, &gameboy);
+
+				MMU* mmuValues = gameboy.getMMUValues();
+				GameboyFlags* flagState = gameboy.getFlagState();
+				GameboyRegisters* reg = gameboy.getGameboyRegisters();
+
+				ImGui::Render();
+				SDL_RenderSetScale(debuggerRenderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+				SDL_SetRenderDrawColor(debuggerRenderer, (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));
+				ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), debuggerRenderer);
+				SDL_RenderPresent(debuggerRenderer);
+
+			}
 
 			//Renders to the screen all things
 			// Rendering
 			ImGui::Render();
-			glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-			glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-			glClear(GL_COLOR_BUFFER_BIT);
-			//glUseProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound
-			ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
-			SDL_GL_SwapWindow(debuggerWindow);
+			SDL_RenderSetScale(render, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
+			SDL_SetRenderDrawColor(render, (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));
+			ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), render);
+			//SDL_RenderClear(render);
+			SDL_RenderPresent(render);
 		}
 	}
 

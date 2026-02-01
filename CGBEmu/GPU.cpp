@@ -115,7 +115,7 @@ void GPU::init(SDL_Renderer* render) {
 void GPU::renderFramebuffer(SDL_Renderer *render) {
 	SDL_UpdateTexture(texture, NULL, framebuffer, 160 * 3);
 	SDL_RenderCopy(render, texture, NULL, NULL);
-	SDL_RenderPresent(render);
+	//SDL_RenderPresent(render);
 }
 
 uint8_t GPU::getColour(uint8_t colourNum, uint16_t address, MMU *mmu) {

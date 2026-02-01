@@ -1,7 +1,4 @@
 #include "CPU.h"
-#include "spdlog/spdlog.h"
-#include "spdlog/sinks/basic_file_sink.h"
-#include <iomanip>   // Para std::setw, std::setfill, std::hex
 
 MMU mmu;
 Interrupt interrupt;
@@ -152,16 +149,13 @@ void CPU::setKey(uint8_t key) {
 		//Right
 		if (key == 4) {
 			mmu.directionsButton = resetBit(mmu.directionsButton, 0);
-			std::cout << "Apretando derecha: 0x" << static_cast<unsigned>(mmu.directionsButton) << std::hex << std::endl;
 			isStoped = false;
 			interrupt.requestInterrupt(&mmu, 4);
 		}
 
 		//Left
 		if (key == 5) {
-			std::cout << "Detectada IZQUIERDA. directionsButton antes: " << (int)mmu.directionsButton;
 			mmu.directionsButton = resetBit(mmu.directionsButton, 1);
-			std::cout << " despues: " << (int)mmu.directionsButton << std::endl;
 			isStoped = false;
 			interrupt.requestInterrupt(&mmu, 4);
 		}
@@ -184,7 +178,6 @@ void CPU::setKey(uint8_t key) {
 void CPU::releaseKey(uint8_t key) {
 
 	//A, B, Start, Select
-	std::cout << "Printing input: " << static_cast<unsigned>(key) << std::endl;
 		//A
 		if (key == 0) {
 			mmu.actionButton = setBit(mmu.actionButton, 0);
@@ -440,10 +433,7 @@ int CPU::step() {
 
 	if (mmu.cyclesToAdd > 0) {
 		addCycles(mmu.cyclesToAdd);
-		std::cout << "Añadiendo ciclos de la mmu: " << static_cast<unsigned>(mmu.cyclesToAdd) << std::hex << std::endl;
 		mmu.cyclesToAdd = 0;
-
-		std::cout << "Total de ciclos de la cpu: " << static_cast<unsigned>(cicles) << std::hex << std::endl;
 	}
 
 	// Devuelve el total de ciclos que consumió esta instrucción (calculado por addCycles interno)

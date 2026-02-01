@@ -176,11 +176,36 @@ void drawFlags(GameboyFlags *flags, GameboyRegisters *reg, GPU *gpu, CPU *gamebo
 	ImGui::End();
 }
 
-void drawGame(GLuint gameTexture) {
-	ImGui::Begin("Gameboy DMG", &isActiveGame, ImGuiWindowFlags_AlwaysAutoResize);
-	ImGui::Text("Game emulated :)");
-	ImGui::Text("pointer = %p", gameTexture);
-	ImGui::Image((void*)(intptr_t)gameTexture, ImVec2(160, 144));
-	ImGui::End();
+void drawGame() {
+	// --- CÓDIGO DE TU MENÚ ---
+	if (ImGui::BeginMainMenuBar()) {
+		if (ImGui::BeginMenu("File")) {
+			if (ImGui::MenuItem("Open ROM...")) {
+				// Lógica para abrir ROM (ver sección siguiente)
+				//abrirDialogoROM();
+			}
+			if (ImGui::MenuItem("Exit")) {
+				return;
+			}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Options")) {
+			// Ejemplo de un checkbox para activar/desactivar sonido
+			static bool sonidoActivado = true;
+			if (ImGui::MenuItem("Enable Sound", "", &sonidoActivado)) {
+				//configurarSonido(sonidoActivado);
+			}
+			ImGui::EndMenu();
+		}
+
+		if (ImGui::BeginMenu("Help")) {
+			if (ImGui::MenuItem("About")) {
+				// Podrías abrir un popup aquí
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::EndMainMenuBar();
+	}
 
 }
