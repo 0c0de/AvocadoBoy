@@ -1,21 +1,22 @@
-# CGB++
-CGB++ is a Gameboy original(the one that use DMG) Emulator
+# AvocadoBoy
+AvocadoBoy is an emulator of the original Gameboy(DMG)
+![Avocado](https://i.ibb.co/svSrDp0S/Gemini-Generated-Image-tyypo2tyypo2tyyp-Photoroom.png)
 
 # Features
-- ✅ Shows graphics
-- ✅ Input implemented
-- ✅ All CPU instructions implemented
-- ✅ Debugger Built-In
+- ✅ Implemented graphics
+- ✅ Implemented Input
+- ✅ All CPU instructions implemented (CB Opcodes included)
+- ✅ Implemented timers
+- ✅ Implemented Interrupts
+- ✅ Small Debugger Built-In
 - ✅ SDL2 and OpenGL
 
 # Things left
-- ❌ Implement timers, now didn´t refresh the graphics
 - ❌ Add custom palettes
 - ❌ Implement Audio
-- ❌ Improve debugger, right now it´s just to rudimentary
+- ❌ Improve debugger
 - ❌ Improve UI like modern emulators
-- ❌ Implements FPS patches(try to play pokemon at 144fps sounds cool)
 
 # My biggest achivement
-Prints hello world
-![hello_world](https://gcdnb.pbrd.co/images/21Nxqdh1QblY.png?o=1)
+Playing tetris
+![hello_world](https://i.ibb.co/nqccgbRQ/Captura-de-pantalla-2026-01-28-112139.png)
