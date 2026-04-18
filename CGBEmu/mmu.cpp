@@ -2,8 +2,10 @@
 #include <iostream>
 #include "mmu.h"
 #include "Timers.h"
+#include "APU.h"
 
 extern Timer* globalTimer;
+extern void SPU_SetMMU(MMU* mmu);
 
 using namespace std;
 
@@ -18,7 +20,7 @@ uint16_t MMU::read(uint16_t addr) {
 }
 
 void MMU::write(uint16_t addr, uint16_t value) {
-    // CORRECCIÓN IMPORTANTE: GameBoy es Little Endian.
+    // CORRECCIï¿½N IMPORTANTE: GameBoy es Little Endian.
     // Primero escribimos el byte bajo, luego el alto.
     write8(addr, (uint8_t)(value & 0xFF));
     write8(addr + 1, (uint8_t)(value >> 8));
@@ -72,7 +74,7 @@ uint8_t MMU::read8(uint16_t addr) {
                 // Empezamos con 0x0F (bits 0-3 en 1 = nada presionado)
                 uint8_t result = 0x0F;
 
-                // Copiamos los bits de selección (4 y 5) que escribió el juego
+                // Copiamos los bits de selecciï¿½n (4 y 5) que escribiï¿½ el juego
                 result |= (currentReg & 0x30);
 
                 // Si P14=0 (bit 4), leemos direcciones
@@ -80,7 +82,7 @@ uint8_t MMU::read8(uint16_t addr) {
                     result &= directionsButton;
                 }
 
-                // Si P15=0 (bit 5), leemos botones de acción
+                // Si P15=0 (bit 5), leemos botones de acciï¿½n
                 if (!(currentReg & 0x20)) {
                     result &= actionButton;
                 }
@@ -126,9 +128,9 @@ void MMU::write8(uint16_t addr, uint8_t value) {
     case 0x5000:
     case 0x6000:
     case 0x7000:
-        // CORRECCIÓN CRÍTICA: NO ESCRIBIR EN ROM
-        // Escribir aquí se usa para configurar el MBC (Memory Bank Controller).
-        // Por ahora no lo implementamos, pero JAMÁS debemos sobrescribir rom[].
+        // CORRECCIï¿½N CRï¿½TICA: NO ESCRIBIR EN ROM
+        // Escribir aquï¿½ se usa para configurar el MBC (Memory Bank Controller).
+        // Por ahora no lo implementamos, pero JAMï¿½S debemos sobrescribir rom[].
         // handleMBC(addr, value); 
         break;
 
@@ -161,6 +163,24 @@ void MMU::write8(uint16_t addr, uint8_t value) {
         // IO Registers
         if (addr >= 0xFF00 && addr < 0xFF80) {
 
+            // Audio registers - write to io[] and trigger channel resets on NRx4
+            if (addr >= 0xFF10 && addr <= 0xFF3F) {
+                io[addr - 0xFF00] = value;
+                // NR14: SC1 trigger
+                if (addr == 0xFF14 && (value & 0x80))
+                    resetSC1length(io[0x11] & 0x3F);
+                // NR24: SC2 trigger
+                else if (addr == 0xFF19 && (value & 0x80))
+                    resetSC2length(io[0x16] & 0x3F);
+                // NR34: SC3 trigger
+                else if (addr == 0xFF1E && (value & 0x80))
+                    resetSC3length(io[0x1B]);
+                // NR44: SC4 trigger
+                else if (addr == 0xFF23 && (value & 0x80))
+                    resetSC4length(io[0x20] & 0x3F);
+                return;
+            }
+
             if (addr == 0xFF00) {
                 io[0x00] = (value & 0x30) | 0xCF;
                 //std::cout << "Value to set in 0xFF00: " << static_cast<unsigned>(result) << std::hex << std::endl;
@@ -192,7 +212,7 @@ void MMU::write8(uint16_t addr, uint8_t value) {
             if (addr == 0xFF41) {
                 uint8_t currentStat = io[0x41];
 
-                // Máscara: Conservamos los bits 0,1,2 actuales, tomamos el resto del nuevo valor
+                // Mï¿½scara: Conservamos los bits 0,1,2 actuales, tomamos el resto del nuevo valor
                 // Bit 7 siempre es 1 en Game Boy original, pero a veces se ignora.
                 io[0x41] = (value & 0xF8) | (currentStat & 0x07);
                 return;
@@ -222,7 +242,7 @@ void MMU::write8(uint16_t addr, uint8_t value) {
 
         // High RAM (HRAM)
         if (addr >= 0xFF80 && addr < 0xFFFF) {
-            // ELIMINADO: El hack de Tetris que rompía la escritura.
+            // ELIMINADO: El hack de Tetris que rompï¿½a la escritura.
             internal_ram[addr - 0xFF80] = value;
             return;
         }
@@ -241,7 +261,7 @@ void MMU::DMATransfer(uint8_t value) {
 
     for (int i = 0; i < 0xA0; i++) {
         // Usamos read8 para leer de donde sea (ROM/RAM) y escribimos directo a OAM
-        // Nota: DMATransfer es instantáneo aquí, en HW real tarda 160 microsegundos.
+        // Nota: DMATransfer es instantï¿½neo aquï¿½, en HW real tarda 160 microsegundos.
         uint8_t data = read8(address + i);
         write8(0xFE00 + i, data);
     }
@@ -265,8 +285,8 @@ void MMU::pop(uint16_t* value) {
 }
 
 void MMU::setRegisters16Bit(GameboyRegisters* reg, const char* regName, uint16_t valueToSet, GameboyFlags* flags) {
-    // Esta función auxiliar está bien, la mantengo igual.
-    string name = regName; // Convertir a string para comparar fácil
+    // Esta funciï¿½n auxiliar estï¿½ bien, la mantengo igual.
+    string name = regName; // Convertir a string para comparar fï¿½cil
 
     if (name == "AF") {
         reg->A = (valueToSet >> 8);

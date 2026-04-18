@@ -5,6 +5,7 @@
 #include "GUI.h"
 #include <bitset>
 #include "Timers.h"
+#include "APU.h"
 #include <iomanip>   // Para std::setw, std::setfill, std::hex
 #include "portable-file-dialogs.h"
 
@@ -77,6 +78,9 @@ void runApp() {
 	//Init gameboy with some default values
 	gameboy.init();
 	gpu.init(render);
+	extern void SPU_SetMMU(MMU*);
+	SPU_SetMMU(gameboy.getMMUValues());
+	initSPU();
 	//Load the bios of the GameBoy
 	//gameboy.loadBIOS();
 	//Load the game specified
@@ -201,6 +205,8 @@ void runApp() {
 			ImGui_ImplSDLRenderer2_NewFrame();
 			ImGui_ImplSDL2_NewFrame();
 			ImGui::NewFrame();
+			SDL_RenderClear(render);
+			SDL_RenderClear(debuggerRenderer);
 
 			//gameboy.runCPU(&gpu, render);
 			if (isRomLoaded) {
@@ -211,6 +217,8 @@ void runApp() {
 					//Logs << "A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD";
 					timer.updateTimer(gameboy.getMMUValues(), gameboy.getInterrupt(), cycles, gameboy.isStoped);
 					gpu.step(cycles, gameboy.getMMUValues(), render, gameboy.getInterrupt());
+					stepSPU((unsigned char)cycles);
+
 					cyclesInThisFrame += cycles;
 				}
 			}
@@ -225,9 +233,12 @@ void runApp() {
 						if (!romPath.empty()) {
 							std::cout << "Path selected: " << romPath[0] << std::endl;
 							gameboy.init();
-							gpu.init(render);
-							gameboy.loadGame(romPath[0].c_str());
-							isRomLoaded = true;
+					gpu.init(render);
+					SPU_SetMMU(gameboy.getMMUValues());
+					stopSPU();
+					initSPU();
+					gameboy.loadGame(romPath[0].c_str());
+					isRomLoaded = true;
 						}
 					}
 
@@ -305,7 +316,6 @@ void runApp() {
 			SDL_RenderSetScale(render, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 			SDL_SetRenderDrawColor(render, (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));
 			ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), render);
-			//SDL_RenderClear(render);
 			SDL_RenderPresent(render);
 		}
 	}

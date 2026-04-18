@@ -33,7 +33,7 @@ void CPU::init() {
 
 	mmu.sp = 0xFFFE;
 
-	// Inicialización de registros de I/O (Audio, Video, etc)
+	// Inicializaciï¿½n de registros de I/O (Audio, Video, etc)
 	mmu.write8(0xFF00, 0xCF);
 	mmu.write8(0xFF05, 0x00);
 	mmu.write8(0xFF06, 0x00);
@@ -41,10 +41,12 @@ void CPU::init() {
 	mmu.write8(0xFF10, 0x80);
 	mmu.write8(0xFF11, 0xBF);
 	mmu.write8(0xFF12, 0xF3);
-	mmu.write8(0xFF14, 0xBF);
+	mmu.write8(0xFF13, 0xFF); // Set frequency low byte
+	mmu.write8(0xFF14, 0xBF | 0x80); // Trigger channel 1
 	mmu.write8(0xFF16, 0x3F);
 	mmu.write8(0xFF17, 0x00);
-	mmu.write8(0xFF19, 0xBF);
+	mmu.write8(0xFF18, 0xFF); // Set frequency low byte for ch2
+	mmu.write8(0xFF19, 0xBF | 0x80); // Trigger channel 2
 	mmu.write8(0xFF1A, 0x7F);
 	mmu.write8(0xFF1B, 0xFF);
 	mmu.write8(0xFF1C, 0x9F);
@@ -55,7 +57,7 @@ void CPU::init() {
 	mmu.write8(0xFF23, 0xBF);
 	mmu.write8(0xFF24, 0x77);
 	mmu.write8(0xFF25, 0xF3);
-	mmu.write8(0xFF26, 0xF1);
+	mmu.write8(0xFF26, 0xF0); // APU enabled (bit 7 = 1)
 	mmu.write8(0xFF40, 0x91);
 	mmu.write8(0xFF42, 0x00);
 	mmu.write8(0xFF43, 0x00);
@@ -219,8 +221,8 @@ void CPU::releaseKey(uint8_t key) {
 }
 
 // ---------------------------------------------------------
-// FUNCIÓN PRINCIPAL REFACTORIZADA
-// Ejecuta UNA instrucción y devuelve los ciclos consumidos
+// FUNCIï¿½N PRINCIPAL REFACTORIZADA
+// Ejecuta UNA instrucciï¿½n y devuelve los ciclos consumidos
 // ---------------------------------------------------------
 int CPU::step() {
 	uint8_t cb_opcode;
@@ -236,7 +238,7 @@ int CPU::step() {
 		getchar();
 	}*/
 
-	// Revisar interrupciones antes de ejecutar (opcional, depende de la precisión deseada)
+	// Revisar interrupciones antes de ejecutar (opcional, depende de la precisiï¿½n deseada)
 	if (interrupt.checkForInterrupts(&mmu, &isHalted, &IME, &pc)) {
 		addCycles(20);
 		return cicles;
@@ -252,27 +254,27 @@ int CPU::step() {
 		// 1. Simular el paso del tiempo (4 ciclos de reloj para un NOP)
 		addCycles(4);
 
-		// 2. LEER REGISTROS DE INTERRUPCIÓN
+		// 2. LEER REGISTROS DE INTERRUPCIï¿½N
 		// IE (Interrupt Enable) = 0xFFFF
 		// IF (Interrupt Flag)   = 0xFF0F
 		uint8_t ie = mmu.read8(0xFFFF);
 		uint8_t if_reg = mmu.read8(0xFF0F);
 
 		// 3. COMPROBAR SI HAY QUE DESPERTAR
-		// Si hay alguna interrupción pendiente (IF) que esté habilitada (IE)
+		// Si hay alguna interrupciï¿½n pendiente (IF) que estï¿½ habilitada (IE)
 		// (El 0x1F es porque solo se usan los 5 primeros bits)
 		if ((ie & if_reg & 0x1F) != 0) {
-			isHalted = false; // ¡DESPERTAR!
+			isHalted = false; // ï¿½DESPERTAR!
 		}
 
 		// Retornamos los ciclos consumidos esperando.
 		// En la siguiente llamada a step(), como isHalted es false, 
-		// la CPU procesará la interrupción normalmente.
+		// la CPU procesarï¿½ la interrupciï¿½n normalmente.
 		return cicles;
 	}
 
 
-	// 1. Reiniciamos el contador de ciclos "delta" para esta instrucción
+	// 1. Reiniciamos el contador de ciclos "delta" para esta instrucciï¿½n
 	clearCycles();
 
 
@@ -295,7 +297,7 @@ int CPU::step() {
 	}*/
 
 
-	// 5. Decodificación y Ejecución
+	// 5. Decodificaciï¿½n y Ejecuciï¿½n
 	switch (opcode) {
 	case 0x00: NOP(); break;
 	case 0x10: STOP(); break;
@@ -371,7 +373,7 @@ int CPU::step() {
 		cb_opcode = mmu.read8(pc + 1);
 		addCycles(4);
 		// IMPORTANTE: CB opcode consume ciclos extra y avanza PC, asegurate que tus funciones internas
-		// de CB manejen el incremento de PC o hazlo aquí si es necesario.
+		// de CB manejen el incremento de PC o hazlo aquï¿½ si es necesario.
 		// Asumo que tus funciones CB_SWAP_N, etc. ya manejan addCycles.
 
 		switch (cb_opcode) {
@@ -425,7 +427,7 @@ int CPU::step() {
 
 	default:
 		cout << "Opcode: " << hex << static_cast<unsigned>(opcode) << " not implemented, PC: " << hex << static_cast<unsigned>(pc) << endl;
-		// Para debugging, puedes pausar aquí o devolver 0.
+		// Para debugging, puedes pausar aquï¿½ o devolver 0.
 		break;
 	}
 
@@ -436,7 +438,7 @@ int CPU::step() {
 		mmu.cyclesToAdd = 0;
 	}
 
-	// Devuelve el total de ciclos que consumió esta instrucción (calculado por addCycles interno)
+	// Devuelve el total de ciclos que consumiï¿½ esta instrucciï¿½n (calculado por addCycles interno)
 	return cicles;
 }
 
@@ -866,9 +868,9 @@ void CPU::HALT() {
 	}
 	// Caso 2: IME desactivado PERO hay interrupciones pendientes - HALT bug
 	else if ((ie & if_reg & 0x1F) != 0) {
-		// HALT bug: no incrementar PC, la siguiente instrucción se ejecuta dos veces
+		// HALT bug: no incrementar PC, la siguiente instrucciï¿½n se ejecuta dos veces
 		isHalted = false;
-		// NO incrementar pc aquí
+		// NO incrementar pc aquï¿½
 		addCycles(4);
 	}
 	// Caso 3: IME desactivado y NO hay interrupciones - HALT normal (sin IME)
@@ -882,7 +884,7 @@ void CPU::HALT() {
 void CPU::DAA() {
 	uint8_t adjustment = 0;
 
-	// Caso A: La última operación fue una SUMA (N es falso)
+	// Caso A: La ï¿½ltima operaciï¿½n fue una SUMA (N es falso)
 	if (!flags.N) {
 		// Si hubo Half-Carry o el nibble bajo es mayor a 9
 		if (flags.H || (reg.A & 0x0F) > 0x09) {
@@ -894,7 +896,7 @@ void CPU::DAA() {
 			flags.C = true; // El carry se mantiene o se activa
 		}
 	}
-	// Caso B: La última operación fue una RESTA (N es verdadero)
+	// Caso B: La ï¿½ltima operaciï¿½n fue una RESTA (N es verdadero)
 	else {
 		if (flags.H) {
 			adjustment |= 0x06;
@@ -917,7 +919,7 @@ void CPU::DAA() {
 
 	// Actualizar Flags
 	flags.Z = (reg.A == 0);
-	flags.H = false; // El flag H siempre se limpia después de DAA
+	flags.H = false; // El flag H siempre se limpia despuï¿½s de DAA
 
 	addCycles(4);
 	pc += 1;
@@ -4995,7 +4997,7 @@ void CPU::ADD_HL_N(uint16_t opcode) {
 void CPU::ADD_SP_N() {
 	int8_t n = (int8_t)mmu.read8(pc + 1);
 
-	// ERROR ESTABA AQUI: No hagas cast a (uint8_t) aquí. Usa todo el SP.
+	// ERROR ESTABA AQUI: No hagas cast a (uint8_t) aquï¿½. Usa todo el SP.
 	int result = (uint16_t)mmu.sp + n;
 
 	// Para los flags, usamos variables temporales para limpieza
