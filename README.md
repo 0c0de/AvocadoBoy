@@ -10,10 +10,12 @@ AvocadoBoy is an emulator of the original Gameboy(DMG)
 - ✅ Implemented Interrupts
 - ✅ Small Debugger Built-In
 - ✅ SDL2 and OpenGL
+- ✅ Implemented audio
+- ✅ Improved UI for loading roms
 
 # Things left
 - ❌ Add custom palettes
-- ❌ Implement Audio
+- ❌ Add save states by saving RAM
 - ❌ Improve debugger
 - ❌ Improve UI like modern emulators
 
