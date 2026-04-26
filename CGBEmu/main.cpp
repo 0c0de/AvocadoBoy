@@ -214,8 +214,6 @@ void runApp() {
 				ImGuiWindowFlags_NoBringToFrontOnFocus |
 				ImGuiWindowFlags_NoNavFocus;
 
-			ImGui::Begin("GameBoy Workspace", nullptr, window_flags);
-
 			SDL_SetRenderDrawColor(render, 0, 0, 0, 255);
 			SDL_RenderClear(render);
 			SDL_RenderClear(debuggerRenderer);
@@ -239,6 +237,7 @@ void runApp() {
 			if (isRomLoaded) { gpu.renderFramebuffer(render); }
 			MMU* mmuValues = gameboy.getMMUValues();
 
+			ImGui::Begin("GameBoy Workspace", nullptr, window_flags);
 			if (ImGui::BeginMainMenuBar()) {
 				if (ImGui::BeginMenu("File")) {
 					if (ImGui::MenuItem("Open ROM")) {
@@ -342,7 +341,7 @@ void runApp() {
 			SDL_RenderSetScale(render, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 			SDL_SetRenderDrawColor(render, (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));
 			ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), render);
-			//SDL_RenderPresent(render);
+			SDL_RenderPresent(render);
 		}
 	}
 
