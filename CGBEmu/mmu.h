@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <cstdio>
 #include <iostream>
+#include <vector>
 
 //16 Bit registers
 		//AF
@@ -45,16 +46,33 @@ struct GameboyFlags {
 	bool H;
 };
 
+// MBC type constants (cartridge header byte 0x147)
+enum MBCType : uint8_t {
+	MBC_ROM_ONLY      = 0x00,
+	MBC_MBC1          = 0x01,
+	MBC_MBC1_RAM      = 0x02,
+	MBC_MBC1_RAM_BAT  = 0x03,
+	MBC_MBC2          = 0x05,
+	MBC_MBC2_BAT      = 0x06,
+	MBC_MBC3_TIMER_BAT       = 0x0F,
+	MBC_MBC3_TIMER_RAM_BAT   = 0x10,
+	MBC_MBC3          = 0x11,
+	MBC_MBC3_RAM      = 0x12,
+	MBC_MBC3_RAM_BAT  = 0x13,
+	MBC_MBC5          = 0x19,
+	MBC_MBC5_RAM      = 0x1A,
+	MBC_MBC5_RAM_BAT  = 0x1B,
+	MBC_MBC5_RUMBLE         = 0x1C,
+	MBC_MBC5_RUMBLE_RAM     = 0x1D,
+	MBC_MBC5_RUMBLE_RAM_BAT = 0x1E,
+};
+
 class MMU {
 	public:
-		//Constructor
-
-		//Memory Map
+		//Memory Map (fixed regions)
 		uint8_t bios[0xFF];
-		uint16_t rom[0x8000];
 		uint16_t vram[0x2000];
 		uint16_t wram[0x2000];
-		uint16_t ram[0x2000];
 		uint16_t echo_ram[0x1E00];
 		uint8_t sprite_attrib[0xA0];
 		uint8_t io[0xFF];
@@ -62,8 +80,30 @@ class MMU {
 		uint8_t IE = 0x00;
 
 		uint16_t stack[0xFFFF];
-		
-		int cyclesToAdd = 0;
+
+		// Dynamic ROM/RAM (allocated on loadROM)
+		std::vector<uint8_t> romData;
+		std::vector<uint8_t> ramData;
+
+		// --- MBC state ---
+		uint8_t  typeMBC       = MBC_ROM_ONLY;
+		bool     ramEnabled    = false;
+
+		// MBC1 / MBC3 shared
+		uint8_t  romBank       = 1;   // selected ROM bank (1-based default)
+		uint8_t  ramBank       = 0;   // selected RAM bank
+		bool     mbc1Mode      = false; // false=ROM banking, true=RAM banking
+
+		// MBC5 extra: 9-bit ROM bank (bit 8 stored separately)
+		uint8_t  romBankHi     = 0;   // bit 8 of MBC5 bank number
+
+		// MBC3 RTC
+		uint8_t  rtcS = 0, rtcM = 0, rtcH = 0;
+		uint8_t  rtcDL = 0, rtcDH = 0;
+		bool     rtcLatchReady = false; // latch sequence: written 0x00 first
+		uint8_t  rtcReg        = 0;    // currently mapped RTC register (0x08-0x0C) or 0xFF = none
+
+		int      cyclesToAdd   = 0;
 
 		//Stack Pointer
 		uint16_t sp;
@@ -100,11 +140,21 @@ class MMU {
 		uint8_t setBit(uint8_t n, uint8_t a);
 
 		uint8_t directionsButton = 0x0F;
-		uint8_t actionButton = 0x0F;
+		uint8_t actionButton     = 0x0F;
 
+		// Load a full ROM image into romData and configure MBC state
+		void loadROM(const std::vector<uint8_t>& data);
 
 	private:
 		bool isInBIOS = false;
 
 		void DMATransfer(uint8_t data);
+
+		// MBC register handlers (called from write8 for 0x0000-0x7FFF writes)
+		void handleMBCWrite(uint16_t addr, uint8_t value);
+
+		// ROM/RAM address resolvers
+		uint8_t readROM(uint16_t addr);
+		uint8_t readRAM(uint16_t addr);
+		void    writeRAM(uint16_t addr, uint8_t value);
 };

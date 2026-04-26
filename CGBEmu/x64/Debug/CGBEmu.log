@@ -1,2 +1,26 @@
-﻿  APU.cpp
+﻿  main.cpp
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(9,16): warning C4305: 'inicializando': truncamiento de 'int' a 'uint8_t'
+  (compilando archivo de origen "main.cpp")
+  
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(9,16): warning C4309: 'inicializando': truncamiento de valor constante
+  (compilando archivo de origen "main.cpp")
+  
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(10,17): warning C4305: 'inicializando': truncamiento de 'int' a 'uint8_t'
+  (compilando archivo de origen "main.cpp")
+  
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(10,17): warning C4309: 'inicializando': truncamiento de valor constante
+  (compilando archivo de origen "main.cpp")
+  
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(11,16): warning C4305: 'inicializando': truncamiento de 'int' a 'uint8_t'
+  (compilando archivo de origen "main.cpp")
+  
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(11,16): warning C4309: 'inicializando': truncamiento de valor constante
+  (compilando archivo de origen "main.cpp")
+  
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(12,16): warning C4305: 'inicializando': truncamiento de 'int' a 'uint8_t'
+  (compilando archivo de origen "main.cpp")
+  
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(12,16): warning C4309: 'inicializando': truncamiento de valor constante
+  (compilando archivo de origen "main.cpp")
+  
   CGBEmu.vcxproj -> C:\Users\josel\Desarrollo\c++\AvocadoBoy\x64\Debug\CGBEmu.exe

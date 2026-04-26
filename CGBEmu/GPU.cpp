@@ -1,4 +1,5 @@
 #include "GPU.h"
+#include <cstring>
 
 /*
 0xFF40 Memory Address:
@@ -75,7 +76,7 @@ uint8_t GPU::setBit(uint8_t value, uint8_t bitToSet) {
 	return bitSet;
 }
 
-void GPU::changeModeGPU(MMU* mmu, uint8_t gpuMode) {
+void GPU::changeModeGPU(MMU* mmu, uint8_t gpuMode, Interrupt* interr) {
 	mode = gpuMode;
 
 	// 1. Leemos el valor actual del registro STAT
@@ -96,10 +97,8 @@ void GPU::changeModeGPU(MMU* mmu, uint8_t gpuMode) {
 	if ((mode == 0) && (lcdStatValue & 0x08)) interruptTriggered = true; // Mode 0 HBlank check
 	if ((mode == 1) && (lcdStatValue & 0x10)) interruptTriggered = true; // Mode 1 VBlank check
 	if ((mode == 2) && (lcdStatValue & 0x20)) interruptTriggered = true; // Mode 2 OAM check
-
 	if (interruptTriggered) {
-		// Necesitas pasar tu puntero de interrupciones a esta función o hacerlo fuera
-		// interrupt->requestInterrupt(mmu, 1); 
+		interr->requestInterrupt(mmu, 1);
 	}
 }
 
@@ -114,7 +113,6 @@ void GPU::init(SDL_Renderer* render) {
 
 void GPU::renderFramebuffer(SDL_Renderer *render) {
 	SDL_UpdateTexture(texture, NULL, framebuffer, 160 * 3);
-	SDL_RenderCopy(render, texture, NULL, NULL);
 	//SDL_RenderPresent(render);
 }
 
@@ -147,19 +145,20 @@ uint8_t GPU::getColour(uint8_t colourNum, uint16_t address, MMU *mmu) {
 }
 
 void GPU::DrawScanline(MMU* mmu) {
+	// Clear BG color index buffer each scanline so sprite priority is never stale
+	memset(bgColorIndex, 0, sizeof(bgColorIndex));
 	uint8_t n = mmu->read8(0xFF40);
-	if (isKthBitSet(n, 7)) {
-		//Display Background
-		//std::cout << "Rendering background" << std::endl;
-		if (isKthBitSet(n, 0)) {
-			renderBackground(mmu);
-		}
-		//Display Sprites
-		//std::cout << "Rendering sprites" << std::endl;
-		if (isKthBitSet(n, 1)) {
-			renderSprites(mmu);
-		}
+	//Display Background
+	//std::cout << "Rendering background" << std::endl;
+	if (isKthBitSet(n, 0)) {
+		renderBackground(mmu);
 	}
+	//Display Sprites
+	//std::cout << "Rendering sprites" << std::endl;
+	if (isKthBitSet(n, 1)) {
+		renderSprites(mmu);
+	}
+	
 }
 
 void GPU::renderBackground(MMU* mmu) {
@@ -182,7 +181,8 @@ void GPU::renderBackground(MMU* mmu) {
 	uint16_t bgMapBase = bgMapSelect ? 0x9C00 : 0x9800;
 	uint16_t winMapBase = winMapSelect ? 0x9C00 : 0x9800;
 
-	// --- BUCLE DE PÍXELES (0 a 159) ---
+	bool windowDrawnThisLine = false;
+	// --- BUCLE DE PIXELES (0 a 159) ---
 	for (int pixel = 0; pixel < 160; pixel++) {
 
 		// 1. Decidir si dibujamos VENTANA o FONDO en este píxel específico
@@ -192,6 +192,7 @@ void GPU::renderBackground(MMU* mmu) {
 			// La ventana se dibuja si estamos dentro de su rango Y y X
 			if (ly >= windowY && pixel >= windowX) {
 				usingWindow = true;
+				windowDrawnThisLine = true;
 			}
 		}
 
@@ -202,7 +203,7 @@ void GPU::renderBackground(MMU* mmu) {
 
 		if (usingWindow) {
 			mapBase = winMapBase;
-			yPos = ly - windowY;       // Y relativo a la ventana
+			yPos = wly;       // Y relativo a la ventana
 			xPos = pixel - windowX;    // X relativo a la ventana
 		}
 		else {
@@ -256,118 +257,92 @@ void GPU::renderBackground(MMU* mmu) {
 		// Asignar RGB (Tu lógica original)
 		uint8_t red = 0, green = 0, blue = 0;
 		switch (col) {
-		case 0: red = 255; green = 255; blue = 255; break;
-		case 1: red = 204; green = 204; blue = 204; break;
-		case 2: red = 119; green = 119; blue = 119; break;
-		case 3: red = 0;   green = 0;   blue = 0;   break;
+		case 0: red = 0xFF; green = 0xFF; blue = 0xFF; break;
+		case 1: red = 0xCC; green = 0xCC; blue = 0xCC; break;
+		case 2: red = 0x77; green = 0x77; blue = 0x77; break;
+		case 3: red = 0x00; green = 0x00; blue = 0x00; break;
 		}
 
 		// Escribir al framebuffer (Ojo con los límites)
 		if (ly < 144 && pixel < 160) {
+			bgColorIndex[pixel] = colorNum;
 			framebuffer[ly][pixel][0] = red;
 			framebuffer[ly][pixel][1] = green;
 			framebuffer[ly][pixel][2] = blue;
 		}
 	}
+	if (windowDrawnThisLine) wly++;
 }
 
 void GPU::renderSprites(MMU *mmu) {
 
-	bool use8x16 = false;
-	uint8_t lcdControl = mmu->read8(0xFF40);
+	bool use8x16 = isKthBitSet(mmu->read8(0xFF40), 2);
+	int ysize = use8x16 ? 16 : 8;
+	int scanline = mmu->read8(0xFF44);
 
-	if (isKthBitSet(lcdControl, 2))
-		use8x16 = true;
-
-	for (int sprite = 0; sprite < 40; sprite++)
+	// Render in REVERSE order: sprite 0 has highest priority and must draw last (on top)
+	for (int sprite = 39; sprite >= 0; sprite--)
 	{
-		// sprite occupies 4 bytes in the sprite attributes table
-		uint8_t index = sprite * 4;
-		uint8_t yPos = mmu->read8(0xFE00 + index) - 16;
-		uint8_t xPos = mmu->read8(0xFE00 + index + 1) - 8;
-		//std::cout << "Index sprite: " << sprite << "Pixel value: " << static_cast<unsigned>(xPos) << std::endl;
-		uint8_t tileLocation = mmu->read8(0xFE00 + index + 2);
+		uint8_t index      = sprite * 4;
+		int     yPos       = (int)mmu->read8(0xFE00 + index)     - 16;
+		int     xPos       = (int)mmu->read8(0xFE00 + index + 1) - 8;
+		uint8_t tileLoc    = mmu->read8(0xFE00 + index + 2);
 		uint8_t attributes = mmu->read8(0xFE00 + index + 3);
 
-		bool yFlip = isKthBitSet(attributes, 6);
-		bool xFlip = isKthBitSet(attributes, 5);
+		bool yFlip    = isKthBitSet(attributes, 6);
+		bool xFlip    = isKthBitSet(attributes, 5);
+		bool priority = isKthBitSet(attributes, 7); // 1 = behind non-zero BG
 
-		int scanline = mmu->read8(0xFF44);
+		// Is this sprite on the current scanline?
+		if (scanline < yPos || scanline >= yPos + ysize)
+			continue;
 
-		int ysize = 8;
-		if (use8x16)
-			ysize = 16;
+		// In 8x16 mode the tile index ignores bit 0
+		if (use8x16) tileLoc &= 0xFE;
 
-		if ((scanline >= yPos) && (scanline < (yPos + ysize))) {
-			int line = scanline - yPos;
+		int line = scanline - yPos;
+		if (yFlip) line = (ysize - 1) - line;
 
-			// read the sprite in backwards in the y axis
-			if (yFlip)
-			{
-				line -= ysize;
-				line *= -1;
+		uint16_t dataAddress = 0x8000 + (tileLoc * 16) + (line * 2);
+		uint8_t  data1 = mmu->read8(dataAddress);
+		uint8_t  data2 = mmu->read8(dataAddress + 1);
+
+		uint16_t paletteAddr = isKthBitSet(attributes, 4) ? 0xFF49 : 0xFF48;
+
+		for (int tilePixel = 7; tilePixel >= 0; tilePixel--)
+		{
+			int colourbit = xFlip ? (7 - tilePixel) : tilePixel;
+
+			// Raw 2-bit color index: bit1 from data2, bit0 from data1
+			int colourNum = (BitGetVal(data2, colourbit) << 1) | BitGetVal(data1, colourbit);
+
+			// Color index 0 is ALWAYS transparent for sprites (raw index, not palette output)
+			if (colourNum == 0) continue;
+
+			int pixel = xPos + (7 - tilePixel);
+
+			if (scanline < 0 || scanline > 143 || pixel < 0 || pixel > 159)
+				continue;
+
+			// OAM priority bit 7: sprite is behind non-zero BG colors
+			if (priority && bgColorIndex[pixel] != 0)
+				continue;
+
+			uint8_t col = getColour(colourNum, paletteAddr, mmu);
+
+			uint8_t red = 0, green = 0, blue = 0;
+			switch (col) {
+			case 0: red = 0xFF; green = 0xFF; blue = 0xFF; break;
+			case 1: red = 0xCC; green = 0xCC; blue = 0xCC; break;
+			case 2: red = 0x77; green = 0x77; blue = 0x77; break;
+			case 3: red = 0x00; green = 0x00; blue = 0x00; break;
 			}
 
-			line *= 2; // same as for tiles
-			uint16_t dataAddress = (0x8000 + (tileLocation * 16)) + line;
-			//std::cout << std::hex << "Tile Location: 0x" << static_cast<unsigned>(tileLocation) << "Line is: 0x" << static_cast<unsigned>(line) << std::endl;
-			uint8_t data1 = mmu->read8(dataAddress);
-			uint8_t data2 = mmu->read8(dataAddress + 1);
-
-			// its easier to read in from right to left as pixel 0 is
-			// bit 7 in the colour data, pixel 1 is bit 6 etc...
-			for (int tilePixel = 7; tilePixel >= 0; tilePixel--)
-			{
-				int colourbit = tilePixel;
-				// read the sprite in backwards for the x axis
-				if (xFlip)
-				{
-					colourbit -= 7;
-					colourbit *= -1;
-				}
-
-				// the rest is the same as for tiles
-				int colourNum = BitGetVal(data2, colourbit);
-				colourNum <<= 1;
-				colourNum |= BitGetVal(data1, colourbit);
-
-				uint16_t colourAddress = isKthBitSet(attributes, 4) ? 0xFF49 : 0xFF48;
-				uint8_t col = getColour(colourNum, colourAddress, mmu);
-
-				// white is transparent for sprites.
-				if (col == 0) {
-					continue;
-				}
-
-				uint8_t red = 0;
-				uint8_t green = 0;
-				uint8_t blue = 0;
-
-				
-				switch (col)
-				{
-				case 0: red = 255; green = 255; blue = 255; break;
-				case 1: red = 0xCC; green = 0xCC; blue = 0xCC; break;
-				case 2: red = 0x77; green = 0x77; blue = 0x77; break;
-				}
-
-				int xPix = 0 - tilePixel;
-				xPix += 7;
-
-				int pixel = xPos + xPix;
-
-				if ((scanline < 0) || (scanline > 143) || (pixel < 0) || (pixel > 159))
-				{
-					continue;
-				}
-
-				framebuffer[scanline][pixel][0] = red;
-				framebuffer[scanline][pixel][1] = green;
-				framebuffer[scanline][pixel][2] = blue;
-			}
+			framebuffer[scanline][pixel][0] = red;
+			framebuffer[scanline][pixel][1] = green;
+			framebuffer[scanline][pixel][2] = blue;
 		}
 	}
-
 }
 
 void GPU::step(uint16_t cycles, MMU *mmu, SDL_Renderer *render, Interrupt *interr) {
@@ -383,7 +358,7 @@ void GPU::step(uint16_t cycles, MMU *mmu, SDL_Renderer *render, Interrupt *inter
 		// El hardware real resetea LY a 0 cuando se apaga el LCD
 		clock = 0;      // Reseteamos el contador de ciclos internos
 		line = 0;       // LY vuelve a 0
-		mode = 0;       // Modo HBlank (o estado inicial)
+		mode = 1;       // Modo HBlank (o estado inicial)
 
 		// Escribimos el estado en memoria para que la CPU lo lea correctamente
 		mmu->io[0x44] = 0; // LY = 0
@@ -410,15 +385,15 @@ void GPU::step(uint16_t cycles, MMU *mmu, SDL_Renderer *render, Interrupt *inter
 
 				if (line == 144) {
 					//Enter in Vertical Blanking Mode
-					changeModeGPU(mmu, 1);
+					changeModeGPU(mmu, 1, interr);
 					interr->requestInterrupt(mmu, 0);
 
 					//TODO: Write a function that write data into the SDL Render
-					renderFramebuffer(render);
+				// renderFramebuffer moved to main loop
 					//std::cout << "Writing data from framebuffer" << std::endl;
 				}
 				else {
-					changeModeGPU(mmu, 2);
+					changeModeGPU(mmu, 2, interr);
 				}
 			}
 			break;
@@ -431,11 +406,15 @@ void GPU::step(uint16_t cycles, MMU *mmu, SDL_Renderer *render, Interrupt *inter
 				line++;
 
 				if (line > 153) {
-					line = 0;
-					changeModeGPU(mmu, 2);
-				}
-
+				line = 0;
+				wly = 0;
+				checkLYC = false;
+				mmu->io[0x44] = 0;
+				changeModeGPU(mmu, 2, interr);
+			} else {
+				checkLYC = false;
 				mmu->io[0x44] = line;
+			}
 			}
 			break;
 		case 2:
@@ -443,7 +422,7 @@ void GPU::step(uint16_t cycles, MMU *mmu, SDL_Renderer *render, Interrupt *inter
 			//std::cout << "Reading OAM Mode" << std::endl;
 			if (clock >= 80) {
 				clock -= 80;
-				changeModeGPU(mmu, 3);
+				changeModeGPU(mmu, 3, interr);
 			}
 			break;
 		case 3:
@@ -451,17 +430,10 @@ void GPU::step(uint16_t cycles, MMU *mmu, SDL_Renderer *render, Interrupt *inter
 			//std::cout << "Reading VRAM for generate picture" << std::endl;
 			if (clock >= 172) {
 
-				//Enter Horizontal Blanking
+				// Draw scanline with registers valid during Mode 3, THEN enter HBlank
 				clock -= 172;
-				changeModeGPU(mmu, 0);
-
-				//Write a line to framebuffer based in the VRAM
-				//TODO: Write a function that does this
-				//renderScanBackground(mmu, line);
-
 				DrawScanline(mmu);
-				//gameboy->requestInterrupt(mmu, 1);
-				//renderSprites(mmu);
+				changeModeGPU(mmu, 0, interr); // HBlank STAT interrupt fires after draw
 			}
 			break;
 		}

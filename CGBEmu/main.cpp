@@ -1,4 +1,4 @@
-#include <SDL.h>
+﻿#include <SDL.h>
 #include <stdio.h>
 #include <iostream>
 #include "CPU.h"
@@ -6,8 +6,11 @@
 #include <bitset>
 #include "Timers.h"
 #include "APU.h"
-#include <iomanip>   // Para std::setw, std::setfill, std::hex
+#include <iomanip>
 #include "portable-file-dialogs.h"
+#include <windows.h>
+#include <timeapi.h>
+#pragma comment(lib, "winmm.lib")
 
 using namespace std;
 
@@ -36,8 +39,8 @@ void runApp() {
 
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
 
-	mainWindow = SDL_CreateWindow("AvocadoBoy", 500, 100, 160 * 3, 144 * 3, (SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI));
-	render = SDL_CreateRenderer(mainWindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	mainWindow = SDL_CreateWindow("AvocadoBoy", 500, 500, 160 * 3, 144 * 3, (SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI));
+	render = SDL_CreateRenderer(mainWindow, -1, SDL_RENDERER_ACCELERATED);
 
 
 	int MAXCYCLES = 70224;
@@ -73,27 +76,13 @@ void runApp() {
 	GPU gpu;
 	//Instantiate class CPU of the gameboy emulator
 	CPU gameboy;
-	//auto logger = spdlog::basic_logger_mt("cpu_log", "cpu_log.txt");
-	//logger->set_pattern("%v");
+
 	//Init gameboy with some default values
 	gameboy.init();
 	gpu.init(render);
 	extern void SPU_SetMMU(MMU*);
 	SPU_SetMMU(gameboy.getMMUValues());
 	initSPU();
-	//Load the bios of the GameBoy
-	//gameboy.loadBIOS();
-	//Load the game specified
-	//gameboy.loadGame("games/hello_world.gb");
-	//For PC
-	//gameboy.loadGame("E:/Dr. Mario (World).gb");
-	//gameboy.loadGame("E:/Tetris.gb");
-	//gameboy.loadGame("E:/02-interrupts.gb");
-	//gameboy.loadGame("E:/03-op sp,hl.gb");
-	//For laptop
-	//gameboy.loadGame("C:/ROMS/Tetris.gb");
-	//gameboy.runLife();
-	//gameboy.loadGame("E:/hello-world.gb");
 
 
 	if (mainWindow != NULL) {
@@ -205,6 +194,29 @@ void runApp() {
 			ImGui_ImplSDLRenderer2_NewFrame();
 			ImGui_ImplSDL2_NewFrame();
 			ImGui::NewFrame();
+			// 1. Get the exact size of your OS window using the ImGui Viewport
+			ImGuiViewport* viewport = ImGui::GetMainViewport();
+			ImGui::SetNextWindowPos(viewport->WorkPos);
+			ImGui::SetNextWindowSize(viewport->WorkSize);
+			ImGui::SetNextWindowViewport(viewport->ID);
+
+			// 2. Remove window padding and borders so the texture goes edge-to-edge
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+			// 3. Set the flags that make this act like a background layer rather than a floating window
+			ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar |
+				ImGuiWindowFlags_NoTitleBar |
+				ImGuiWindowFlags_NoCollapse |
+				ImGuiWindowFlags_NoResize |
+				ImGuiWindowFlags_NoMove |
+				ImGuiWindowFlags_NoBringToFrontOnFocus |
+				ImGuiWindowFlags_NoNavFocus;
+
+			ImGui::Begin("GameBoy Workspace", nullptr, window_flags);
+
+			SDL_SetRenderDrawColor(render, 0, 0, 0, 255);
 			SDL_RenderClear(render);
 			SDL_RenderClear(debuggerRenderer);
 
@@ -222,6 +234,9 @@ void runApp() {
 					cyclesInThisFrame += cycles;
 				}
 			}
+
+			// Volcar framebuffer del emulador al renderer SDL una vez por frame
+			if (isRomLoaded) { gpu.renderFramebuffer(render); }
 			MMU* mmuValues = gameboy.getMMUValues();
 
 			if (ImGui::BeginMainMenuBar()) {
@@ -233,12 +248,12 @@ void runApp() {
 						if (!romPath.empty()) {
 							std::cout << "Path selected: " << romPath[0] << std::endl;
 							gameboy.init();
-					gpu.init(render);
-					SPU_SetMMU(gameboy.getMMUValues());
-					stopSPU();
-					initSPU();
-					gameboy.loadGame(romPath[0].c_str());
-					isRomLoaded = true;
+							gpu.init(render);
+							SPU_SetMMU(gameboy.getMMUValues());
+							stopSPU();
+							initSPU();
+							gameboy.loadGame(romPath[0].c_str());
+							isRomLoaded = true;
 						}
 					}
 
@@ -292,6 +307,8 @@ void runApp() {
 				ImGui::EndMainMenuBar();
 			}
 
+			ImGui::PopStyleVar(3);
+
 			if (showDebugger) {
 
 				ImGui::SetCurrentContext(context2);
@@ -310,13 +327,22 @@ void runApp() {
 
 			}
 
-			//Renders to the screen all things
-			// Rendering
+			// 6. Draw the texture
+			// GetContentRegionAvail() is the magic function here. It calculates 
+			// exactly how much space is left in the window BELOW the menu bar.
+			ImVec2 available_size = ImGui::GetContentRegionAvail();
+
+			ImGui::Image(
+				(ImTextureID)(intptr_t)gpu.texture,
+				available_size // This makes the texture fill the remaining screen space perfectly!
+			);
+			ImGui::End();
+
 			ImGui::Render();
 			SDL_RenderSetScale(render, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 			SDL_SetRenderDrawColor(render, (Uint8)(clear_color.x * 255), (Uint8)(clear_color.y * 255), (Uint8)(clear_color.z * 255), (Uint8)(clear_color.w * 255));
 			ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), render);
-			SDL_RenderPresent(render);
+			//SDL_RenderPresent(render);
 		}
 	}
 

@@ -22,6 +22,13 @@ public:
 
 	uint8_t framebuffer[144][160][3];
 
+	// Raw BG color index (0-3) per pixel for the current scanline.
+	// 0 = transparent for sprite priority purposes.
+	uint8_t bgColorIndex[160];
+
+	// Window internal line counter: only increments on scanlines where window was drawn.
+	uint8_t wly = 0;
+
 	SDL_Texture* texture;
 
 	//Steps of the GPU
@@ -65,7 +72,7 @@ private:
 
 	uint8_t BitGetVal(uint8_t valueToGet, uint8_t bitToDisplace);
 
-	void changeModeGPU(MMU *mmu, uint8_t gpuMode);
+	void changeModeGPU(MMU *mmu, uint8_t gpuMode, Interrupt *interr);
 
 	uint8_t clearBit(uint8_t value, uint8_t bitToReset);
 

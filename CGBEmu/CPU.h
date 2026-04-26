@@ -8,6 +8,8 @@
 #include <SDL.h>
 #include <vector>
 #include "GPU.h"
+#include "Cartridge.h"
+
 using namespace std;
 //CPU is similar to Z80 but with modified instructions
 

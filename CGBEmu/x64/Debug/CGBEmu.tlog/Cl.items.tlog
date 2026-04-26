@@ -1,4 +1,5 @@
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\APU.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\APU.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Cartridge.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\Cartridge.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\CPU.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\CPU.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\GPU.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\GPU.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\GUI.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\GUI.obj
@@ -13,5 +14,6 @@ C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\imgui_widgets.cpp;C:\Users\josel
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Interrupts.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\Interrupts.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Joypad.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\Joypad.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\main.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\main.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\MCB.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\MCB.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\mmu.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\mmu.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\Timers.obj

@@ -238,7 +238,10 @@ int CPU::step() {
 		getchar();
 	}*/
 
-	// Revisar interrupciones antes de ejecutar (opcional, depende de la precisi�n deseada)
+	// Reiniciar ciclos delta para esta instruccion
+	clearCycles();
+
+	// Revisar interrupciones antes de ejecutar
 	if (interrupt.checkForInterrupts(&mmu, &isHalted, &IME, &pc)) {
 		addCycles(20);
 		return cicles;
@@ -274,10 +277,6 @@ int CPU::step() {
 	}
 
 
-	// 1. Reiniciamos el contador de ciclos "delta" para esta instrucci�n
-	clearCycles();
-
-
 	flags.Z = reg.F & 0x80;
 	flags.N = reg.F & 0x40;
 	flags.H = reg.F & 0x20;
@@ -301,6 +300,8 @@ int CPU::step() {
 	switch (opcode) {
 	case 0x00: NOP(); break;
 	case 0x10: STOP(); break;
+	case 0x0F: RRCA(); break;
+	case 0x17: RLA(); break;
 	case 0x1F: RRA(); break;
 	case 0x07: RLCA(); break;
 	case 0x27: DAA(); break;
@@ -324,6 +325,7 @@ int CPU::step() {
 	case 0xF0: LDH_A_N(); break;
 	case 0xE0: LDH_N_A(); break;
 	case 0xE2: LD_regC_A(); break;
+	case 0xF2: LD_A_regC(); break;
 	case 0x3A: LDD_A_regHL(); break;
 	case 0x32: LDD_regHL_A(); break;
 	case 0x2A: LDI_A_regHL(); break;
@@ -357,12 +359,15 @@ int CPU::step() {
 	case 0xA0: case 0xA1: case 0xA2: case 0xA3: case 0xA4: case 0xA5: case 0xA6: case 0xA7: case 0xE6: AND_N(opcode); break;
 	case 0x0B: case 0x1B: case 0x2B: case 0x3B: DEC_NN(opcode); break;
 	case 0x2F: CPL(); break;
+	case 0x37: SCF(); break;
+	case 0x3F: CCF(); break;
 	case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x86: case 0x87: case 0xC6: ADD_A_N(opcode); break;
 	case 0x88: case 0x89: case 0x8A: case 0x8B: case 0x8C: case 0x8D: case 0x8E: case 0x8F: case 0xCE: ADC_A_N(opcode); break;
 	case 0x09: case 0x19: case 0x29: case 0x39: ADD_HL_N(opcode); break;
 	case 0xE8: ADD_SP_N(); break;
 	case 0x03: case 0x13: case 0x23: case 0x33: INC_NN(opcode); break;
 	case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x96: case 0x97: case 0xD6: SUB_N(opcode); break;
+	case 0x98: case 0x99: case 0x9A: case 0x9B: case 0x9C: case 0x9D: case 0x9E: case 0x9F: case 0xDE: SUBC_A_N(opcode); break;
 
 		// Stack
 	case 0xF1: case 0xD1: case 0xC1: case 0xE1: POP_NN(opcode); break;
@@ -4479,6 +4484,14 @@ void CPU::LD_regC_A() {
 	addCycles(8);
 }
 
+void CPU::LD_A_regC() {
+	uint16_t n = 0xFF00 + reg.C;
+	reg.A = mmu.read8(n);
+	mmu.setRegisters8Bit(&reg, "A", reg.A);
+	pc++;
+	addCycles(8);
+}
+
 void CPU::DEC_NN(uint16_t opcode) {
 	switch (opcode)
 	{
@@ -4515,6 +4528,71 @@ void CPU::CPL() {
 	flags.N = true;
 	flags.H = true;
 	pc++;
+}
+
+void CPU::SCF() {
+	flags.C = true;
+	flags.N = false;
+	flags.H = false;
+	addCycles(4);
+	pc++;
+}
+
+void CPU::CCF() {
+	flags.C = !flags.C;
+	flags.N = false;
+	flags.H = false;
+	addCycles(4);
+	pc++;
+}
+
+void CPU::RRCA() {
+	bool bit0 = (reg.A & 0x01) != 0;
+	uint8_t result = reg.A >> 1;
+	if (bit0) result |= 0x80;
+	mmu.setRegisters8Bit(&reg, "A", result);
+	flags.Z = false;
+	flags.N = false;
+	flags.H = false;
+	flags.C = bit0;
+	addCycles(4);
+	pc++;
+}
+
+void CPU::RLA() {
+	bool oldCarry = flags.C;
+	flags.C = (reg.A & 0x80) != 0;
+	uint8_t result = reg.A << 1;
+	if (oldCarry) result |= 0x01;
+	mmu.setRegisters8Bit(&reg, "A", result);
+	flags.Z = false;
+	flags.N = false;
+	flags.H = false;
+	addCycles(4);
+	pc++;
+}
+
+void CPU::SUBC_A_N(uint16_t opcode) {
+	uint8_t val = 0;
+	int extraCycles = 0;
+	switch (opcode) {
+	case 0x98: val = reg.B; pc += 1; addCycles(4); break;
+	case 0x99: val = reg.C; pc += 1; addCycles(4); break;
+	case 0x9A: val = reg.D; pc += 1; addCycles(4); break;
+	case 0x9B: val = reg.E; pc += 1; addCycles(4); break;
+	case 0x9C: val = reg.H; pc += 1; addCycles(4); break;
+	case 0x9D: val = reg.L; pc += 1; addCycles(4); break;
+	case 0x9E: val = mmu.read8(reg.HL); pc += 1; addCycles(8); break;
+	case 0x9F: val = reg.A; pc += 1; addCycles(4); break;
+	case 0xDE: val = mmu.read8(pc + 1); pc += 2; addCycles(8); break;
+	}
+	uint8_t carry = flags.C ? 1 : 0;
+	int result = (int)reg.A - (int)val - (int)carry;
+	flags.H = ((reg.A & 0x0F) < ((val & 0x0F) + carry));
+	flags.C = result < 0;
+	flags.Z = (result & 0xFF) == 0;
+	flags.N = true;
+	mmu.setRegisters8Bit(&reg, "A", (uint8_t)(result & 0xFF));
 }
 
 void CPU::CB_SWAP_N(uint16_t opcode) {
@@ -5507,31 +5585,32 @@ GameboyRegisters *CPU::getGameboyRegisters() {
 
 //Load the game into memory
 void CPU::loadGame(const char* path) {
-	//Holds the game
-	ifstream game;
-	game.open(path, ifstream::binary);
-	
-	//Set pos at the end
-	game.seekg(0, ifstream::end);
-	
-	//Holds the size of the game
-	int gamesize = game.tellg();
-	cout << "Size is: " << gamesize << endl;
-	
-	//Set pos at the beginning
-	game.seekg(0, ifstream::beg);
-	char* tempGame = new char[gamesize];
-
-	//Dump content into the buffer we created
-	game.read(tempGame, gamesize);
-	
-	//Now dump the content in memory space desired
-	for (int x = 0; x < gamesize; x++) {
-		mmu.rom[x] = tempGame[x];
-		//std::cout << "Address is " << x << ", Value of that is: " << hex << static_cast<unsigned>(mmu.rom[x]) << endl;
+	ifstream game(path, ifstream::binary);
+	if (!game) {
+		cout << "Error: no se pudo abrir el ROM: " << path << endl;
+		return;
 	}
-	std::cout << "Game loaded into memory" << endl;
+
+	// Leer header para log (opcional, loadROM ya lo lee del vector)
+	uint8_t headerBytes[0x50] = {};
+	game.seekg(0x100);
+	game.read(reinterpret_cast<char*>(headerBytes), 0x50);
+	CartHeader cartHeader = readHeader(headerBytes);
+
+	// Leer ROM completo en vector
+	game.seekg(0, ifstream::end);
+	size_t gamesize = (size_t)game.tellg();
+	cout << "Size is: " << gamesize << " bytes" << endl;
+
+	game.seekg(0, ifstream::beg);
+	std::vector<uint8_t> romBuffer(gamesize);
+	game.read(reinterpret_cast<char*>(romBuffer.data()), gamesize);
 	game.close();
+
+	// Delegar al MMU: detecta MBC, reserva RAM, resetea estado
+	mmu.loadROM(romBuffer);
+
+	std::cout << "Game loaded into memory" << endl;
 }
 
 

@@ -150,6 +150,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="APU.cpp" />
+    <ClCompile Include="Cartridge.cpp" />
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="GPU.cpp" />
     <ClCompile Include="GUI.cpp" />
@@ -164,11 +165,13 @@
     <ClCompile Include="Interrupts.cpp" />
     <ClCompile Include="Joypad.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MCB.cpp" />
     <ClCompile Include="mmu.cpp" />
     <ClCompile Include="Timers.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="APU.h" />
+    <ClInclude Include="Cartridge.h" />
     <ClInclude Include="CPU.h" />
     <ClInclude Include="GPU.h" />
     <ClInclude Include="GUI.h" />
@@ -183,6 +186,7 @@
     <ClInclude Include="imstb_truetype.h" />
     <ClInclude Include="Interrupts.h" />
     <ClInclude Include="Joypad.h" />
+    <ClInclude Include="MCB.h" />
     <ClInclude Include="mmu.h" />
     <ClInclude Include="portable-file-dialogs.h" />
     <ClInclude Include="resource.h" />

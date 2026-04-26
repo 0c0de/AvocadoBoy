@@ -42,7 +42,8 @@ void drawMMU(MMU *mmu) {
 
 		if (showROM) {
 			ImGui::Text("ROM");
-			ROMData.DrawContents((void*)(mmu->rom), 0x8000);
+			if (!mmu->romData.empty())
+				ROMData.DrawContents((void*)mmu->romData.data(), mmu->romData.size());
 		}
 
 		if (showHRAM) {
@@ -52,7 +53,8 @@ void drawMMU(MMU *mmu) {
 
 		if (showRAM) {
 			ImGui::Text("RAM");
-			ROMData.DrawContents((void*)(mmu->ram), 0x4000);
+			if (!mmu->ramData.empty())
+				ROMData.DrawContents((void*)mmu->ramData.data(), mmu->ramData.size());
 		}
 
 		if (showVRAM) {
