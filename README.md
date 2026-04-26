@@ -19,6 +19,12 @@ AvocadoBoy is an emulator of the original Gameboy(DMG)
 - ❌ Improve debugger
 - ❌ Improve UI like modern emulators
 
+# ROMS Tested that works✅
+- Tetris
+- Pokemon yellow
+- The legend of Zelda Link's Awakening
+- Dr Wario
+- 
 # My biggest achivement
 Playing tetris
 ![hello_world](https://i.ibb.co/nqccgbRQ/Captura-de-pantalla-2026-01-28-112139.png)
