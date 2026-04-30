@@ -40,6 +40,9 @@ public:
 
 	void loadGame(const char* path);
 
+	// Returns the 16-byte ROM title from the cartridge header (bytes 0x134-0x143)
+	std::string getRomTitle();
+
 	void runLife();
 
 	Interrupt* getInterrupt();

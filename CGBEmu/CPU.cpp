@@ -25,11 +25,18 @@ void CPU::writeFlagsToF() {
 
 void CPU::init() {
 	pc = 0x100;
-	//pc = 0x0; // Descomentar si no usas BIOS real
-	mmu.setRegisters16Bit(&reg, "AF", 0x01B0, &flags);
-	mmu.setRegisters16Bit(&reg, "BC", 0x0013);
-	mmu.setRegisters16Bit(&reg, "DE", 0x00D8);
-	mmu.setRegisters16Bit(&reg, "HL", 0x014D);
+	// CGB post-BIOS register values differ from DMG
+	if (mmu.cgbMode) {
+		mmu.setRegisters16Bit(&reg, "AF", 0x1180, &flags);
+		mmu.setRegisters16Bit(&reg, "BC", 0x0000);
+		mmu.setRegisters16Bit(&reg, "DE", 0xFF56);
+		mmu.setRegisters16Bit(&reg, "HL", 0x000D);
+	} else {
+		mmu.setRegisters16Bit(&reg, "AF", 0x01B0, &flags);
+		mmu.setRegisters16Bit(&reg, "BC", 0x0013);
+		mmu.setRegisters16Bit(&reg, "DE", 0x00D8);
+		mmu.setRegisters16Bit(&reg, "HL", 0x014D);
+	}
 
 	mmu.sp = 0xFFFE;
 
@@ -5581,6 +5588,19 @@ GameboyFlags *CPU::getFlagState() {
 
 GameboyRegisters *CPU::getGameboyRegisters() {
 	return &reg;
+}
+
+std::string CPU::getRomTitle() {
+	std::string title;
+	if (mmu.romData.size() > 0x143) {
+		for (int i = 0; i < 16; i++) {
+			char c = (char)mmu.romData[0x134 + i];
+			if (c == '\0') break;
+			title += c;
+		}
+	}
+	if (title.empty()) title = "UNKNOWN";
+	return title;
 }
 
 //Load the game into memory

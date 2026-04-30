@@ -100,6 +100,7 @@ void GPU::changeModeGPU(MMU* mmu, uint8_t gpuMode, Interrupt* interr) {
 	if (interruptTriggered) {
 		interr->requestInterrupt(mmu, 1);
 	}
+	if (gpuMode == 0 && mmu->cgbMode) mmu->hdmaPendingHBlank = true;
 }
 
 /*
@@ -144,13 +145,29 @@ uint8_t GPU::getColour(uint8_t colourNum, uint16_t address, MMU *mmu) {
 
 }
 
+void GPU::cgbPaletteToRGB(const uint8_t* palRAM, int paletteNum, int colorIdx, uint8_t& r, uint8_t& g, uint8_t& b) {
+
+    int idx = (paletteNum * 8) + (colorIdx * 2);
+
+    uint16_t rgb555 = palRAM[idx] | ((uint16_t)palRAM[idx + 1] << 8);
+
+    r = (uint8_t)(((rgb555 >> 0) & 0x1F) * 255 / 31);
+
+    g = (uint8_t)(((rgb555 >> 5) & 0x1F) * 255 / 31);
+
+    b = (uint8_t)(((rgb555 >> 10) & 0x1F) * 255 / 31);
+
+}
+
+
 void GPU::DrawScanline(MMU* mmu) {
 	// Clear BG color index buffer each scanline so sprite priority is never stale
 	memset(bgColorIndex, 0, sizeof(bgColorIndex));
 	uint8_t n = mmu->read8(0xFF40);
 	//Display Background
 	//std::cout << "Rendering background" << std::endl;
-	if (isKthBitSet(n, 0)) {
+	bool bgEnable = isKthBitSet(n, 0);
+	if (mmu->cgbMode || bgEnable) {
 		renderBackground(mmu);
 	}
 	//Display Sprites
@@ -161,190 +178,162 @@ void GPU::DrawScanline(MMU* mmu) {
 	
 }
 
+static inline uint8_t readVRAMBank(MMU* mmu, int bank, uint16_t offset) {
+	if (mmu->cgbMode)
+		return mmu->vramBank[bank & 1][offset];
+	return (uint8_t)mmu->vram[offset];
+}
 void GPU::renderBackground(MMU* mmu) {
-	uint8_t lcdControl = mmu->read8(0xFF40);
-	uint8_t ly = mmu->read8(0xFF44); // Línea actual (Scanline)
-
-	// Coordenadas de Scroll y Window
-	uint8_t scrollY = mmu->read8(0xFF42);
-	uint8_t scrollX = mmu->read8(0xFF43);
-	uint8_t windowY = mmu->read8(0xFF4A);
-	uint8_t windowX = mmu->read8(0xFF4B) - 7; // WX tiene un offset de 7
-
-	// Flags del LCDC
-	bool windowEnabled = isKthBitSet(lcdControl, 5);
-	bool tileDataUnsigned = isKthBitSet(lcdControl, 4); // Bit 4: 1=8000-8FFF, 0=8800-97FF
-	bool bgMapSelect = isKthBitSet(lcdControl, 3);      // Bit 3: Mapa Fondo (9800 vs 9C00)
-	bool winMapSelect = isKthBitSet(lcdControl, 6);     // Bit 6: Mapa Ventana (9800 vs 9C00)
-
-	// Direcciones base de los mapas
-	uint16_t bgMapBase = bgMapSelect ? 0x9C00 : 0x9800;
-	uint16_t winMapBase = winMapSelect ? 0x9C00 : 0x9800;
-
-	bool windowDrawnThisLine = false;
-	// --- BUCLE DE PIXELES (0 a 159) ---
-	for (int pixel = 0; pixel < 160; pixel++) {
-
-		// 1. Decidir si dibujamos VENTANA o FONDO en este píxel específico
-		bool usingWindow = false;
-
-		if (windowEnabled) {
-			// La ventana se dibuja si estamos dentro de su rango Y y X
-			if (ly >= windowY && pixel >= windowX) {
-				usingWindow = true;
-				windowDrawnThisLine = true;
-			}
-		}
-
-		// 2. Calcular las coordenadas en el mapa de tiles (VRAM)
-		uint16_t mapBase = 0;
-		uint8_t yPos = 0;
-		uint8_t xPos = 0;
-
-		if (usingWindow) {
-			mapBase = winMapBase;
-			yPos = wly;       // Y relativo a la ventana
-			xPos = pixel - windowX;    // X relativo a la ventana
-		}
-		else {
-			mapBase = bgMapBase;
-			yPos = scrollY + ly;       // Y relativo al fondo (con scroll)
-			xPos = scrollX + pixel;    // X relativo al fondo (con scroll)
-		}
-
-		// 3. Obtener el ID del Tile
-		// (yPos / 8) * 32  -> Fila del tile (32 tiles de ancho)
-		// (xPos / 8)       -> Columna del tile
-		uint16_t tileRow = (yPos / 8) * 32;
-		uint16_t tileCol = (xPos / 8);
-		uint16_t tileAddress = mapBase + tileRow + tileCol;
-
-		// Leemos el índice del tile (puede ser signed o unsigned)
-		uint8_t tileIndex = mmu->read8(tileAddress);
-
-		// 4. Calcular la dirección de los datos del tile (AQUÍ FALLABA TETRIS)
-		uint16_t tileLocation = 0;
-
-		if (tileDataUnsigned) {
-			// MODO 8000 (Unsigned): 0 a 255
-			// Dr. Mario usa esto
-			tileLocation = 0x8000 + (tileIndex * 16);
-		}
-		else {
-			// MODO 8800 (Signed): -128 a 127
-			// Tetris usa esto. Usamos 0x9000 como base para simplificar la matemática.
-			// Casteamos explícitamente a int8_t para obtener el signo correcto.
-			tileLocation = 0x9000 + ((int8_t)tileIndex * 16);
-		}
-
-		// 5. Obtener los bytes del tile (Plano bajo y alto)
-		uint8_t line = (yPos % 8) * 2; // Que línea del tile (0-7) * 2 bytes
-		uint8_t data1 = mmu->read8(tileLocation + line);
-		uint8_t data2 = mmu->read8(tileLocation + line + 1);
-
-		// 6. Decodificar el color (Bit flip)
-		// El pixel 0 es el Bit 7, el pixel 7 es el Bit 0.
-		int colorBit = 7 - (xPos % 8);
-
-		// Combinamos los bits
-		// (Bit del byte 2 << 1) | (Bit del byte 1)
-		uint8_t colorNum = !!(data2 & (1 << colorBit)) << 1;
-		colorNum |= !!(data1 & (1 << colorBit));
-
-		// 7. Colorear (Paleta)
-		uint8_t col = getColour(colorNum, 0xFF47, mmu);
-
-		// Asignar RGB (Tu lógica original)
-		uint8_t red = 0, green = 0, blue = 0;
-		switch (col) {
-		case 0: red = 0xFF; green = 0xFF; blue = 0xFF; break;
-		case 1: red = 0xCC; green = 0xCC; blue = 0xCC; break;
-		case 2: red = 0x77; green = 0x77; blue = 0x77; break;
-		case 3: red = 0x00; green = 0x00; blue = 0x00; break;
-		}
-
-		// Escribir al framebuffer (Ojo con los límites)
-		if (ly < 144 && pixel < 160) {
-			bgColorIndex[pixel] = colorNum;
-			framebuffer[ly][pixel][0] = red;
-			framebuffer[ly][pixel][1] = green;
-			framebuffer[ly][pixel][2] = blue;
-		}
-	}
-	if (windowDrawnThisLine) wly++;
-}
-
-void GPU::renderSprites(MMU *mmu) {
-
-	bool use8x16 = isKthBitSet(mmu->read8(0xFF40), 2);
-	int ysize = use8x16 ? 16 : 8;
-	int scanline = mmu->read8(0xFF44);
-
-	// Render in REVERSE order: sprite 0 has highest priority and must draw last (on top)
-	for (int sprite = 39; sprite >= 0; sprite--)
-	{
-		uint8_t index      = sprite * 4;
-		int     yPos       = (int)mmu->read8(0xFE00 + index)     - 16;
-		int     xPos       = (int)mmu->read8(0xFE00 + index + 1) - 8;
-		uint8_t tileLoc    = mmu->read8(0xFE00 + index + 2);
-		uint8_t attributes = mmu->read8(0xFE00 + index + 3);
-
-		bool yFlip    = isKthBitSet(attributes, 6);
-		bool xFlip    = isKthBitSet(attributes, 5);
-		bool priority = isKthBitSet(attributes, 7); // 1 = behind non-zero BG
-
-		// Is this sprite on the current scanline?
-		if (scanline < yPos || scanline >= yPos + ysize)
-			continue;
-
-		// In 8x16 mode the tile index ignores bit 0
-		if (use8x16) tileLoc &= 0xFE;
-
-		int line = scanline - yPos;
-		if (yFlip) line = (ysize - 1) - line;
-
-		uint16_t dataAddress = 0x8000 + (tileLoc * 16) + (line * 2);
-		uint8_t  data1 = mmu->read8(dataAddress);
-		uint8_t  data2 = mmu->read8(dataAddress + 1);
-
-		uint16_t paletteAddr = isKthBitSet(attributes, 4) ? 0xFF49 : 0xFF48;
-
-		for (int tilePixel = 7; tilePixel >= 0; tilePixel--)
-		{
-			int colourbit = xFlip ? (7 - tilePixel) : tilePixel;
-
-			// Raw 2-bit color index: bit1 from data2, bit0 from data1
-			int colourNum = (BitGetVal(data2, colourbit) << 1) | BitGetVal(data1, colourbit);
-
-			// Color index 0 is ALWAYS transparent for sprites (raw index, not palette output)
-			if (colourNum == 0) continue;
-
-			int pixel = xPos + (7 - tilePixel);
-
-			if (scanline < 0 || scanline > 143 || pixel < 0 || pixel > 159)
-				continue;
-
-			// OAM priority bit 7: sprite is behind non-zero BG colors
-			if (priority && bgColorIndex[pixel] != 0)
-				continue;
-
-			uint8_t col = getColour(colourNum, paletteAddr, mmu);
-
-			uint8_t red = 0, green = 0, blue = 0;
-			switch (col) {
-			case 0: red = 0xFF; green = 0xFF; blue = 0xFF; break;
-			case 1: red = 0xCC; green = 0xCC; blue = 0xCC; break;
-			case 2: red = 0x77; green = 0x77; blue = 0x77; break;
-			case 3: red = 0x00; green = 0x00; blue = 0x00; break;
-			}
-
-			framebuffer[scanline][pixel][0] = red;
-			framebuffer[scanline][pixel][1] = green;
-			framebuffer[scanline][pixel][2] = blue;
-		}
-	}
-}
-
+ 	uint8_t lcdControl = mmu->read8(0xFF40);
+ 	uint8_t ly = mmu->read8(0xFF44);
+ 	uint8_t scrollY = mmu->read8(0xFF42);
+ 	uint8_t scrollX = mmu->read8(0xFF43);
+ 	uint8_t windowY = mmu->read8(0xFF4A);
+ 	uint8_t windowX = (uint8_t)(mmu->read8(0xFF4B) - 7);
+ 
+ 	bool windowEnabled    = isKthBitSet(lcdControl, 5);
+ 	bool tileDataUnsigned = isKthBitSet(lcdControl, 4);
+ 	bool bgMapSelect      = isKthBitSet(lcdControl, 3);
+ 	bool winMapSelect     = isKthBitSet(lcdControl, 6);
+ 
+ 	uint16_t bgMapBase  = bgMapSelect  ? 0x9C00 : 0x9800;
+ 	uint16_t winMapBase = winMapSelect ? 0x9C00 : 0x9800;
+ 
+ 	bool windowDrawnThisLine = false;
+ 
+ 	for (int pixel = 0; pixel < 160; pixel++) {
+ 
+ 		bool usingWindow = false;
+ 		if (windowEnabled && ly >= windowY && pixel >= (int)(uint8_t)windowX) {
+ 			usingWindow = true;
+ 			windowDrawnThisLine = true;
+ 		}
+ 
+ 		uint16_t mapBase;
+ 		uint8_t yPos, xPos;
+ 		if (usingWindow) {
+ 			mapBase = winMapBase;
+ 			yPos = wly;
+ 			xPos = (uint8_t)(pixel - (int)(uint8_t)windowX);
+ 		} else {
+ 			mapBase = bgMapBase;
+ 			yPos = scrollY + ly;
+ 			xPos = scrollX + pixel;
+ 		}
+ 
+ 		uint16_t tileRow     = (yPos / 8) * 32;
+ 		uint16_t tileCol     = (xPos / 8);
+ 		uint16_t tileAddress = mapBase + tileRow + tileCol;
+ 
+ 		// Always read tile index from VRAM bank 0
+ 		uint8_t tileIndex = readVRAMBank(mmu, 0, tileAddress - 0x8000);
+ 
+ 		// CGB: tile attributes from VRAM bank 1
+ 		uint8_t tileAttr    = 0;
+ 		bool cgbYFlip   = false;
+ 		bool cgbXFlip   = false;
+ 		int  cgbVramBank = 0;
+ 		int  cgbPalette  = 0;
+ 		if (mmu->cgbMode) {
+ 			tileAttr    = readVRAMBank(mmu, 1, tileAddress - 0x8000);
+ 			cgbYFlip    = (tileAttr & 0x40) != 0;
+ 			cgbXFlip    = (tileAttr & 0x20) != 0;
+ 			cgbVramBank = (tileAttr & 0x08) ? 1 : 0;
+ 			cgbPalette  = (tileAttr & 0x07);
+ 		}
+ 
+ 		uint16_t tileLocation;
+ 		if (tileDataUnsigned)
+ 			tileLocation = 0x8000 + ((uint16_t)tileIndex * 16);
+ 		else
+ 			tileLocation = (uint16_t)(0x9000 + ((int8_t)tileIndex * 16));
+ 
+ 		uint8_t tileLineOfs = (yPos % 8);
+ 		if (cgbYFlip) tileLineOfs = 7 - tileLineOfs;
+ 		uint8_t tileLine = tileLineOfs * 2;
+ 
+ 		// Read tile data from correct VRAM bank
+ 		uint16_t tileOfs = tileLocation - 0x8000;
+ 		uint8_t data1 = readVRAMBank(mmu, cgbVramBank, tileOfs + tileLine);
+ 		uint8_t data2 = readVRAMBank(mmu, cgbVramBank, tileOfs + tileLine + 1);
+ 
+ 		int colorBit = cgbXFlip ? (xPos % 8) : (7 - (xPos % 8));
+ 		uint8_t colorNum = (uint8_t)((!!(data2 & (1 << colorBit)) << 1) | !!(data1 & (1 << colorBit)));
+ 
+ 		uint8_t red = 0, green = 0, blue = 0;
+ 		if (mmu->cgbMode) {
+ 			cgbPaletteToRGB(mmu->bgPaletteRAM, cgbPalette, colorNum, red, green, blue);
+ 		} else {
+ 			uint8_t col = getColour(colorNum, 0xFF47, mmu);
+ 			red   = GB_PALETTES[currentPalette].color[col][0];
+ 			green = GB_PALETTES[currentPalette].color[col][1];
+ 			blue  = GB_PALETTES[currentPalette].color[col][2];
+ 		}
+ 
+ 		if (ly < 144 && pixel < 160) {
+ 			bgColorIndex[pixel] = colorNum;
+ 			framebuffer[ly][pixel][0] = red;
+ 			framebuffer[ly][pixel][1] = green;
+ 			framebuffer[ly][pixel][2] = blue;
+ 		}
+ 	}
+ 	if (windowDrawnThisLine) wly++;
+ }
+ 
+ void GPU::renderSprites(MMU *mmu) {
+ 	bool use8x16 = isKthBitSet(mmu->read8(0xFF40), 2);
+ 	int ysize    = use8x16 ? 16 : 8;
+ 	int scanline = mmu->read8(0xFF44);
+ 
+ 	for (int sprite = 39; sprite >= 0; sprite--) {
+ 		uint8_t index      = sprite * 4;
+ 		int     yPos       = (int)mmu->read8(0xFE00 + index)     - 16;
+ 		int     xPos       = (int)mmu->read8(0xFE00 + index + 1) - 8;
+ 		uint8_t tileLoc    = mmu->read8(0xFE00 + index + 2);
+ 		uint8_t attributes = mmu->read8(0xFE00 + index + 3);
+ 
+ 		bool yFlip    = isKthBitSet(attributes, 6);
+ 		bool xFlip    = isKthBitSet(attributes, 5);
+ 		bool priority = isKthBitSet(attributes, 7);
+ 
+ 		if (scanline < yPos || scanline >= yPos + ysize) continue;
+ 
+ 		if (use8x16) tileLoc &= 0xFE;
+ 
+ 		int line = scanline - yPos;
+ 		if (yFlip) line = (ysize - 1) - line;
+ 
+ 		int cgbSpVramBank = mmu->cgbMode ? ((attributes & 0x08) ? 1 : 0) : 0;
+ 		int cgbSpPalette  = mmu->cgbMode ? (attributes & 0x07) : 0;
+ 
+ 		uint16_t dataOfs = (uint16_t)(tileLoc * 16) + (uint16_t)(line * 2);
+ 		uint8_t  data1 = readVRAMBank(mmu, cgbSpVramBank, dataOfs);
+ 		uint8_t  data2 = readVRAMBank(mmu, cgbSpVramBank, dataOfs + 1);
+ 
+ 		uint16_t paletteAddr = isKthBitSet(attributes, 4) ? 0xFF49 : 0xFF48;
+ 
+ 		for (int tilePixel = 7; tilePixel >= 0; tilePixel--) {
+ 			int colourbit = xFlip ? (7 - tilePixel) : tilePixel;
+ 			int colourNum = (BitGetVal(data2, colourbit) << 1) | BitGetVal(data1, colourbit);
+ 			if (colourNum == 0) continue;
+ 			int pixel = xPos + (7 - tilePixel);
+ 			if (scanline < 0 || scanline > 143 || pixel < 0 || pixel > 159) continue;
+ 			if (priority && bgColorIndex[pixel] != 0) continue;
+ 			uint8_t red = 0, green = 0, blue = 0;
+ 			if (mmu->cgbMode) {
+ 				cgbPaletteToRGB(mmu->objPaletteRAM, cgbSpPalette, colourNum, red, green, blue);
+ 			} else {
+ 				uint8_t col = getColour(colourNum, paletteAddr, mmu);
+ 				red   = GB_PALETTES[currentPalette].color[col][0];
+ 				green = GB_PALETTES[currentPalette].color[col][1];
+ 				blue  = GB_PALETTES[currentPalette].color[col][2];
+ 			}
+ 			framebuffer[scanline][pixel][0] = red;
+ 			framebuffer[scanline][pixel][1] = green;
+ 			framebuffer[scanline][pixel][2] = blue;
+ 		}
+ 	}
+ }
 void GPU::step(uint16_t cycles, MMU *mmu, SDL_Renderer *render, Interrupt *interr) {
 	// 1. LEER EL REGISTRO DE CONTROL (LCDC)
 	uint8_t lcdc = mmu->io[0x40];

@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include <iostream>
+#include <cstring>
 #include "mmu.h"
 #include "Timers.h"
 #include "APU.h"
@@ -22,6 +23,34 @@ static bool isBitSetMMU(uint8_t n, uint8_t k) {
 // ---------------------------------------------------------------------------
 void MMU::loadROM(const std::vector<uint8_t>& data) {
     romData = data;
+
+    // CGB compatibility flag (byte 0x143): 0x80 = CGB-compat, 0xC0 = CGB-only
+    if (data.size() > 0x143) {
+        uint8_t cgbFlag = data[0x143];
+        cgbMode = (cgbFlag == 0x80 || cgbFlag == 0xC0);
+    } else {
+        cgbMode = false;
+    }
+
+    // Clear CGB memory regions
+    memset(vramBank,     0, sizeof(vramBank));
+    memset(wramBank,     0, sizeof(wramBank));
+    memset(bgPaletteRAM, 0xFF, sizeof(bgPaletteRAM));
+    memset(objPaletteRAM,0xFF, sizeof(objPaletteRAM));
+    // Clear DMG VRAM/WRAM for clean state
+    memset(vram, 0, sizeof(vram));
+    memset(wram, 0, sizeof(wram));
+    vbk  = 0;
+    svbk = 1;
+    bcps = 0;
+    ocps = 0;
+    key1 = 0;
+    hdmaActive    = false;
+    hdmaBytesLeft = 0;
+    hdmaLen       = 0xFF;
+
+    if (cgbMode)
+        cout << "[CGB] Game Boy Color mode detected" << endl;
 
     // Detectar tipo MBC desde el header (byte 0x147)
     typeMBC = (data.size() > 0x147) ? data[0x147] : MBC_ROM_ONLY;
@@ -310,22 +339,32 @@ uint8_t MMU::read8(uint16_t addr) {
 
     case 0x8000:
     case 0x9000: // VRAM
+        if (cgbMode)
+            return vramBank[vbk & 1][addr - 0x8000];
         return vram[addr - 0x8000];
 
     case 0xA000:
     case 0xB000: // RAM externa / RTC
         return readRAM(addr);
 
-    case 0xC000:
-    case 0xD000: // Working RAM
+    case 0xC000: // WRAM bank 0
+        if (cgbMode) return wramBank[0][addr - 0xC000];
+        return wram[addr - 0xC000];
+
+    case 0xD000: // WRAM switchable bank 1-7
+        if (cgbMode) {
+            uint8_t bank = (svbk == 0) ? 1 : (svbk & 7);
+            return wramBank[bank][addr - 0xD000];
+        }
         return wram[addr - 0xC000];
 
     case 0xE000: // Shadow RAM
+        if (cgbMode) return wramBank[0][addr - 0xE000];
         return wram[addr - 0xE000];
 
     case 0xF000:
         if (addr >= 0xFE00 && addr <= 0xFE9F) return sprite_attrib[addr - 0xFE00];
-        if (addr >= 0xFEA0 && addr <  0xFF00) return 0;
+        if (addr >= 0xFEA0 && addr <  0xFF00) return 0xFF;
 
         if (addr >= 0xFF00 && addr < 0xFF80) {
             if (addr == 0xFF00) {
@@ -338,6 +377,17 @@ uint8_t MMU::read8(uint16_t addr) {
                 return result;
             }
             if (addr == 0xFF0F) return io[0x0F] | 0xE0;
+            // CGB registers
+            if (cgbMode) {
+                if (addr == 0xFF4F) return vbk | 0xFE;
+                if (addr == 0xFF4D) return key1;
+                if (addr == 0xFF55) return hdmaActive ? (hdmaLen & 0x7F) : 0xFF;
+                if (addr == 0xFF68) return bcps;
+                if (addr == 0xFF69) return bgPaletteRAM[bcps & 0x3F];
+                if (addr == 0xFF6A) return ocps;
+                if (addr == 0xFF6B) return objPaletteRAM[ocps & 0x3F];
+                if (addr == 0xFF70) return svbk;
+            }
             return io[addr - 0xFF00];
         }
 
@@ -369,7 +419,10 @@ void MMU::write8(uint16_t addr, uint8_t value) {
 
     case 0x8000:
     case 0x9000: // VRAM
-        vram[addr - 0x8000] = value;
+        if (cgbMode)
+            vramBank[vbk & 1][addr - 0x8000] = value;
+        else
+            vram[addr - 0x8000] = value;
         break;
 
     case 0xA000:
@@ -377,13 +430,23 @@ void MMU::write8(uint16_t addr, uint8_t value) {
         writeRAM(addr, value);
         break;
 
-    case 0xC000:
-    case 0xD000: // Working RAM
-        wram[addr - 0xC000] = value;
+    case 0xC000: // WRAM bank 0
+        if (cgbMode) wramBank[0][addr - 0xC000] = value;
+        else         wram[addr - 0xC000] = value;
+        break;
+
+    case 0xD000: // WRAM switchable bank 1-7
+        if (cgbMode) {
+            uint8_t bank = (svbk == 0) ? 1 : (svbk & 7);
+            wramBank[bank][addr - 0xD000] = value;
+        } else {
+            wram[addr - 0xC000] = value;
+        }
         break;
 
     case 0xE000: // Shadow RAM
-        wram[addr - 0xE000] = value;
+        if (cgbMode) wramBank[0][addr - 0xE000] = value;
+        else         wram[addr - 0xE000] = value;
         break;
 
     case 0xF000:
@@ -421,6 +484,50 @@ void MMU::write8(uint16_t addr, uint8_t value) {
             }
             if (addr == 0xFF46) { DMATransfer(value); cyclesToAdd += 160; return; }
             if (addr == 0xFF44) { io[addr - 0xFF00] = 0; return; }
+            // CGB registers
+            if (cgbMode) {
+                if (addr == 0xFF4F) { vbk = value & 1; return; }
+                if (addr == 0xFF4D) { key1 = (key1 & 0x80) | (value & 0x01); return; }
+                if (addr == 0xFF51) { hdmaSrc = (hdmaSrc & 0x00FF) | ((uint16_t)value << 8); return; }
+                if (addr == 0xFF52) { hdmaSrc = (hdmaSrc & 0xFF00) | (value & 0xF0); return; }
+                if (addr == 0xFF53) { hdmaDst = (hdmaDst & 0x00FF) | (((uint16_t)value & 0x1F) << 8); return; }
+                if (addr == 0xFF54) { hdmaDst = (hdmaDst & 0xFF00) | (value & 0xF0); return; }
+                if (addr == 0xFF55) {
+                    if (hdmaActive && !(value & 0x80)) {
+                        // Cancel HBlank DMA
+                        hdmaActive = false;
+                        hdmaLen |= 0x80;
+                        return;
+                    }
+                    hdmaLen = value & 0x7F;
+                    hdmaBytesLeft = ((int)(hdmaLen) + 1) * 16;
+                    if (value & 0x80) {
+                        hdmaActive = true;   // HBlank mode
+                    } else {
+                        // General-purpose DMA: copy all now
+                        for (int i = 0; i < hdmaBytesLeft; i++)
+                            write8(0x8000 | ((hdmaDst + i) & 0x1FFF), read8(hdmaSrc + i));
+                        hdmaSrc += hdmaBytesLeft;
+                        hdmaDst += hdmaBytesLeft;
+                        hdmaLen = 0xFF;
+                        hdmaBytesLeft = 0;
+                    }
+                    return;
+                }
+                if (addr == 0xFF68) { bcps = value; return; }
+                if (addr == 0xFF69) {
+                    bgPaletteRAM[bcps & 0x3F] = value;
+                    if (bcps & 0x80) bcps = (bcps & 0x80) | ((bcps + 1) & 0x3F);
+                    return;
+                }
+                if (addr == 0xFF6A) { ocps = value; return; }
+                if (addr == 0xFF6B) {
+                    objPaletteRAM[ocps & 0x3F] = value;
+                    if (ocps & 0x80) ocps = (ocps & 0x80) | ((ocps + 1) & 0x3F);
+                    return;
+                }
+                if (addr == 0xFF70) { svbk = value & 0x07; return; }
+            }
             io[addr - 0xFF00] = value;
             return;
         }
@@ -429,6 +536,25 @@ void MMU::write8(uint16_t addr, uint8_t value) {
         if (addr == 0xFFFF) { IE = value; return; }
         break;
     }
+}
+
+// ---------------------------------------------------------------------------
+// HDMA step (HBlank DMA — copies 16 bytes per HBlank)
+// ---------------------------------------------------------------------------
+int MMU::stepHDMA() {
+    if (!hdmaActive || hdmaBytesLeft <= 0) return 0;
+    // Copy one block of 16 bytes
+    for (int i = 0; i < 16; i++)
+        write8(0x8000 | ((hdmaDst + i) & 0x1FFF), read8(hdmaSrc + i));
+    hdmaSrc += 16;
+    hdmaDst += 16;
+    hdmaBytesLeft -= 16;
+    if (hdmaLen > 0) hdmaLen--;
+    if (hdmaBytesLeft <= 0) {
+        hdmaActive = false;
+        hdmaLen = 0xFF;
+    }
+    return 32; // 32 T-cycles per 16-byte block
 }
 
 // ---------------------------------------------------------------------------

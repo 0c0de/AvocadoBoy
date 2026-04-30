@@ -151,6 +151,7 @@
   <ItemGroup>
     <ClCompile Include="APU.cpp" />
     <ClCompile Include="Cartridge.cpp" />
+    <ClCompile Include="SaveState.cpp" />
     <ClCompile Include="CPU.cpp" />
     <ClCompile Include="GPU.cpp" />
     <ClCompile Include="GUI.cpp" />
@@ -189,6 +190,7 @@
     <ClInclude Include="MCB.h" />
     <ClInclude Include="mmu.h" />
     <ClInclude Include="portable-file-dialogs.h" />
+    <ClInclude Include="SaveState.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="Timers.h" />
   </ItemGroup>

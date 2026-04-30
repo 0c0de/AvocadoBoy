@@ -23,4 +23,5 @@ C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(12,16): warning C4305: 
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Timers.h(12,16): warning C4309: 'inicializando': truncamiento de valor constante
   (compilando archivo de origen "main.cpp")
   
+C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.44.35207\include\filesystem(12): warning STL4038: The contents of <filesystem> are available only with C++17 or later.
   CGBEmu.vcxproj -> C:\Users\josel\Desarrollo\c++\AvocadoBoy\x64\Debug\CGBEmu.exe

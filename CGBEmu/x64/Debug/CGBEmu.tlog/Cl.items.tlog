@@ -1,5 +1,6 @@
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\APU.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\APU.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\Cartridge.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\Cartridge.obj
+C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\SaveState.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\SaveState.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\CPU.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\CPU.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\GPU.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\GPU.obj
 C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\GUI.cpp;C:\Users\josel\Desarrollo\c++\AvocadoBoy\CGBEmu\x64\Debug\GUI.obj

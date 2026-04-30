@@ -71,6 +71,7 @@ class MMU {
 	public:
 		//Memory Map (fixed regions)
 		uint8_t bios[0xFF];
+		// DMG-compat VRAM (bank 0 only); CGB uses vramBank
 		uint16_t vram[0x2000];
 		uint16_t wram[0x2000];
 		uint16_t echo_ram[0x1E00];
@@ -108,6 +109,36 @@ class MMU {
 		//Stack Pointer
 		uint16_t sp;
 
+		// ----------------------------------------------------------------
+		// CGB (Game Boy Color) extensions
+		// ----------------------------------------------------------------
+		bool cgbMode = false;          // true when running a CGB cartridge
+
+		// VRAM: 2 banks of 8KB each (bank 0 = DMG-compat, bank 1 = CGB tile attrs)
+		uint8_t  vramBank[2][0x2000];
+		uint8_t  vbk = 0;             // FF4F — current VRAM bank (0 or 1)
+
+		// WRAM: 8 banks of 4KB each (bank 0 always at C000, banks 1-7 switchable D000)
+		uint8_t  wramBank[8][0x1000];
+		uint8_t  svbk = 1;            // FF70 — current WRAM bank (1-7)
+
+		// CGB color palettes: 8 palettes × 4 colors × 2 bytes (RGB555 little-endian)
+		uint8_t  bgPaletteRAM[64];    // FF68/FF69 — background palette data
+		uint8_t  objPaletteRAM[64];   // FF6A/FF6B — object palette data
+		uint8_t  bcps = 0;            // FF68 — BG palette index/auto-inc
+		uint8_t  ocps = 0;            // FF6A — OBJ palette index/auto-inc
+
+		// HDMA (CGB only)
+		uint16_t hdmaSrc  = 0;
+		uint16_t hdmaDst  = 0;
+		uint8_t  hdmaLen  = 0;        // (blocks-1), 0xFF = inactive
+		bool     hdmaActive = false;  // HBlank DMA in progress
+		bool     hdmaPendingHBlank = false; // Set when entering HBlank, cleared after one stepHDMA()
+		int      hdmaBytesLeft = 0;
+
+		// KEY1 — double-speed mode (stub)
+		uint8_t  key1 = 0;            // FF4D
+
 		//Is in bios
 		bool isInBios = false;
 
@@ -144,6 +175,9 @@ class MMU {
 
 		// Load a full ROM image into romData and configure MBC state
 		void loadROM(const std::vector<uint8_t>& data);
+
+		// Execute one HBlank HDMA block (16 bytes). Returns cycles consumed.
+		int  stepHDMA();
 
 	private:
 		bool isInBIOS = false;

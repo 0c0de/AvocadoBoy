@@ -1,6 +1,23 @@
 #pragma once
 #include "Interrupts.h"
 #include <SDL.h>
+#include <cstdint>
+
+struct GBPaletteColors {
+	uint8_t color[4][3]; // [shade 0-3][R,G,B]
+};
+
+// Shade 0 = lightest, shade 3 = darkest
+static const GBPaletteColors GB_PALETTES[] = {
+	// 0: Classic DMG green
+	{{{ 0xE0,0xF8,0xD0 }, { 0x88,0xC0,0x70 }, { 0x34,0x68,0x56 }, { 0x08,0x18,0x20 }}},
+	// 1: Red
+	{{{ 0xFF,0xFF,0xFF }, { 0xFF,0x88,0x88 }, { 0xCC,0x22,0x22 }, { 0x44,0x00,0x00 }}},
+	// 2: Black & White
+	{{{ 0xFF,0xFF,0xFF }, { 0xAA,0xAA,0xAA }, { 0x55,0x55,0x55 }, { 0x00,0x00,0x00 }}},
+	// 3: Default gray (original emulator colors)
+	{{{ 0xFF,0xFF,0xFF }, { 0xCC,0xCC,0xCC }, { 0x77,0x77,0x77 }, { 0x00,0x00,0x00 }}},
+};
 
 class GPU
 {
@@ -28,6 +45,9 @@ public:
 
 	// Window internal line counter: only increments on scanlines where window was drawn.
 	uint8_t wly = 0;
+
+	// Active palette index (0=DMG Green, 1=Red, 2=B&W, 3=Default gray)
+	int currentPalette = 3;
 
 	SDL_Texture* texture;
 
@@ -61,6 +81,10 @@ public:
 	void updateVRAM(MMU *mmu, uint8_t idx, uint16_t address1, uint16_t address2, uint8_t currLine, bool isBG);
 
 	uint8_t getColour(uint8_t colorNum, uint16_t address, MMU* mmu);
+
+	// CGB: decode 15-bit RGB555 palette entry to R8/G8/B8
+	static void cgbPaletteToRGB(const uint8_t* palRAM, int paletteNum, int colorIdx,
+							   uint8_t& r, uint8_t& g, uint8_t& b);
 
 	void renderFramebuffer(SDL_Renderer *render);
 
