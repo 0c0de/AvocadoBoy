@@ -12,12 +12,14 @@ AvocadoBoy is an emulator of the original Gameboy(DMG)
 - ✅ SDL2 and OpenGL
 - ✅ Implemented audio
 - ✅ Improved UI for loading roms
+- ✅ Add save states by saving RAM
+- ✅ Add custom palettes
 
 # Things left
-- ❌ Add custom palettes
-- ❌ Add save states by saving RAM
 - ❌ Improve debugger
 - ❌ Improve UI like modern emulators
+- ❌ Fix some cracking in the audio
+- ❌ Fix graphical glitches
 
 # ROMS Tested that works✅
 - Tetris
@@ -25,6 +27,6 @@ AvocadoBoy is an emulator of the original Gameboy(DMG)
 - The legend of Zelda Link's Awakening
 - Dr Wario
 - 
-# My biggest achivement
+# My biggest achivement(OLD)
 Playing tetris
 ![hello_world](https://i.ibb.co/nqccgbRQ/Captura-de-pantalla-2026-01-28-112139.png)
